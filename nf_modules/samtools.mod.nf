@@ -5,6 +5,12 @@ process SAMTOOLS_SORT{
 	tag "$bam" // Adds name to job submission instead of (1), (2) etc.
 	label 'bigMem' // 20GB
 
+	conda (params.enable_conda ? "bioconda::samtools=1.14" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/samtools:1.14--hb421002_0' :
+        'quay.io/biocontainers/samtools:1.14--hb421002_0' }"
+
+
 	input:
 		path(bam)
 		val (outputdir)
@@ -29,7 +35,6 @@ process SAMTOOLS_SORT{
 		// TODO: Find more elegant way to strip file ending of input BAM file
 
 		"""
-		module load samtools
 		samtools sort $samtools_sort_options $bam -o ${bam}_sorted.bam 
 		rename .bam_sorted _sorted *
     	"""
@@ -42,6 +47,12 @@ process SAMTOOLS_INDEX{
 	tag "$bam"     // Adds name to job submission instead of (1), (2) etc.
 	label 'bigMem' // 20GB
 
+	conda (params.enable_conda ? "bioconda::samtools=1.14" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/samtools:1.14--hb421002_0' :
+        'quay.io/biocontainers/samtools:1.14--hb421002_0' }"
+
+
 	input:
 		path(bam)
 		val (outputdir)
@@ -52,7 +63,7 @@ process SAMTOOLS_INDEX{
 		path "*.bai",     emit: bai
     	
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 		samtools_index_options = samtools_index_args
@@ -62,7 +73,6 @@ process SAMTOOLS_INDEX{
 		}
 		
 		"""
-		module load samtools
 		samtools index $samtools_index_options $bam
 		"""
 		

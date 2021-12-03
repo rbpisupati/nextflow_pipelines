@@ -8,6 +8,11 @@ process BISMARK2BEDGRAPH {
 	
 	tag "$name" // Adds name to job submission instead of (1), (2) etc.
 
+	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
+        'quay.io/biocontainers/bismark:0.23.0--0' }"
+
 	label 'bigMem' // 20G
 			
     input:
@@ -21,7 +26,7 @@ process BISMARK2BEDGRAPH {
 		path "*bedGraph.gz",   emit: bedGraph
 		
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 
@@ -44,7 +49,6 @@ process BISMARK2BEDGRAPH {
 		all_reads = reads
 
 		"""
-		module load bismark
 		bismark2bedGraph --buffer 15G -o $output_name $bismark2bedGraph_options $all_reads
 		"""
 		

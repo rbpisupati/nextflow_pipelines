@@ -7,6 +7,11 @@ process HISAT2 {
 	label 'bigMem'
 	label 'multiCore'
 
+	conda (params.enable_conda ? "bioconda::hisat2=2.2.0 bioconda::samtools=1.10" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/mulled-v2-a97e90b3b802d1da3d6958e0867610c718cb5eb1:2880dd9d8ad0a7b221d4eacda9a818e92983128d-0' :
+        'quay.io/biocontainers/mulled-v2-a97e90b3b802d1da3d6958e0867610c718cb5eb1:2880dd9d8ad0a7b221d4eacda9a818e92983128d-0' }"
+
     input:
 	    tuple val(name), path(reads)
 		val (outputdir)
@@ -18,7 +23,7 @@ process HISAT2 {
 		path "*stats.txt", emit: stats
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 	
@@ -47,8 +52,6 @@ process HISAT2 {
 		hisat_name = name + "_" + params.genome["name"]
 
 		"""
-		module load hisat2
-		module load samtools
 		hisat2 -p ${cores} ${hisat_options} -x ${index} ${splices} ${readString}  2>${hisat_name}_hisat2_stats.txt | samtools view -bS -F 4 -F 8 -F 256 -> ${hisat_name}_hisat2.bam
 		"""
 

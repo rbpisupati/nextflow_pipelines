@@ -7,6 +7,11 @@ process CELLRANGER_COUNT {
 	tag "$sampleID" // Adds name to job submission instead of (1), (2) etc.
 	label 'cellranger'
 
+	if (params.enable_conda) {
+        exit 1, "Conda environments cannot be used when using the Cell Ranger tool. Please use docker or singularity containers."
+    }
+	container "nfcore/cellranger:6.0.2"
+
 	cpus 16
   	memory { 35.GB * task.attempt }  
 	errorStrategy { sleep(Math.pow(2, task.attempt) * 30 as long); return 'retry' }
@@ -26,7 +31,7 @@ process CELLRANGER_COUNT {
 	    path "${sampleID}/outs/*"
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 		cores = 16

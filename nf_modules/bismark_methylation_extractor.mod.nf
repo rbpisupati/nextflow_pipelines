@@ -12,6 +12,11 @@ process BISMARK_METHYLATION_EXTRACTOR {
 	
 	tag "$bam" // Adds name to job submission instead of (1), (2) etc.
 
+	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
+        'quay.io/biocontainers/bismark:0.23.0--0' }"
+
     input:
 	    tuple val (name), path(bam)
 		val (outputdir)
@@ -26,7 +31,7 @@ process BISMARK_METHYLATION_EXTRACTOR {
 		path "*cov.gz",                         emit: coverage
 	
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
     
 	script:
 		
@@ -64,7 +69,6 @@ process BISMARK_METHYLATION_EXTRACTOR {
 
 		// println ("Now running command: bismark_methylation_extractor -parallel ${cores} ${methXtract_options} ${bam}")
 		"""
-		module load bismark
 		bismark_methylation_extractor --bedGraph --buffer 10G -parallel ${cores} ${methXtract_options} ${bam}
 		"""
 

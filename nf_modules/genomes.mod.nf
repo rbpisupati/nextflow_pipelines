@@ -8,27 +8,28 @@ def getGenome(name) {
 
     scriptDir = workflow.projectDir
     
-    // die gracefully if the user specified an incorrect genome
-    def fileName = scriptDir.toString() + "/genomes.d/" + name + ".genome"
-    def testFile = new File(fileName)
-    if (!testFile.exists()) {
-        println("\nFile >>$fileName<< does not exist. Listing available genomes...\n")
-        listGenomes()
-    }   
-    else { 
-        // println ("File $fileName exists.")
-    }
+    // // die gracefully if the user specified an incorrect genome
+    // def fileName = scriptDir.toString() + "/genomes.d/" + name + ".genome"
+    // def testFile = new File(fileName)
+    // if (!testFile.exists()) {
+    //     println("\nFile >>$fileName<< does not exist. Listing available genomes...\n")
+    //     listGenomes()
+    // }   
+    // else { 
+    //     // println ("File $fileName exists.")
+    // }
 
-    genomeFH = new File (fileName).newInputStream()
+    // genomeFH = new File (fileName).newInputStream()
 
-    genomeValues = [:]  // initialising map. name is also part of each .genome file
+    // genomeValues = [:]  // initialising map. name is also part of each .genome file
 
-    genomeFH.eachLine {
-        sections =  it.split("\\s+",2)
-        genomeValues[sections[0]] = sections[1]
-    }
+    // genomeFH.eachLine {
+    //     sections =  it.split("\\s+",2)
+    //     genomeValues[sections[0]] = sections[1]
+    // }
 
-    return genomeValues
+    // migrated to igenomes..
+    return params.genomes[ params.genome ]
 
 }
 

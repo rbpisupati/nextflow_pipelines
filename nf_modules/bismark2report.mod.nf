@@ -1,6 +1,11 @@
 nextflow.enable.dsl=2
 
 process BISMARK2REPORT {
+
+	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
+        'quay.io/biocontainers/bismark:0.23.0--0' }"
 	
     input:
 	    file (file)
@@ -12,7 +17,7 @@ process BISMARK2REPORT {
 	    path "*html",       emit: html
 		
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 		if (verbose){
@@ -20,7 +25,6 @@ process BISMARK2REPORT {
 		}
 
 		"""
-		module load bismark
 		bismark2report
 		"""
 

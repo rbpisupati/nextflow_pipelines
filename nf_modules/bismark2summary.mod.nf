@@ -1,6 +1,11 @@
 nextflow.enable.dsl=2
 
 process BISMARK2SUMMARY {
+
+	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
+        'quay.io/biocontainers/bismark:0.23.0--0' }"
     
 	input:
 	    file (file)
@@ -13,7 +18,7 @@ process BISMARK2SUMMARY {
 		path "*txt",        emit: report 
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 		// We need to replace single quotes in the arguments so that they are not getting passed in as a single string
@@ -25,7 +30,6 @@ process BISMARK2SUMMARY {
 		}
 
 		"""
-		module load bismark
 		bismark2summary
 		"""
 

@@ -3,10 +3,13 @@ nextflow.enable.dsl=2
 process MULTIQC {
 	
 	label 'quadCore'
+	conda (params.enable_conda ? 'bioconda::multiqc=1.11' : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0' :
+        'quay.io/biocontainers/multiqc:1.11--pyhdfd78af_0' }"
 
 	// dynamic directive
 	memory { 20.GB * task.attempt }  
-	errorStrategy { sleep(Math.pow(2, task.attempt) * 30 as long); return 'retry' }
 	maxRetries 3
 
     input:
@@ -20,7 +23,7 @@ process MULTIQC {
 		// path "*stats.txt", emit: stats 
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 		
@@ -29,7 +32,6 @@ process MULTIQC {
 		}
 
 		"""
-		module load multiqc
 		multiqc $multiqc_args -x work .
 		"""
 

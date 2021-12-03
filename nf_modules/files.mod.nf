@@ -1,123 +1,75 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
+params.file_ext = [:]
+params.single_end = [:]
 
-def makeFilesChannel(fileList) {    
-    
-    // def meta = [:]
-    file_ch = Channel.fromFilePairs( getFileBaseNames(fileList), size:-1)
-        //.map { it -> [ [meta.id = it[0]], it[1]] }
-            
-        // .map { meta.id = it[0]}
-        //.map { meta.files = it[1]}
-        //.view()
-        // .subscribe onNext: { println it }, onComplete: { println 'Done' }
+workflow INPUT_FILES {
+    take:
+    fileList
 
-    // meta.each { key, val -> 
-    //   println ("Key: $key = Files: $val")
-    // }
-    return(file_ch)
+    main:
+    if (params.file_ext == "fastq"){
+        file_ch = Channel.fromFilePairs( fileList )
+    } else if (params.file_ext == "bam"){
+        ch_input_bams = Channel
+                            .fromPath( fileList )
+                            .map{ row -> [ file(row).baseName, file(row, checkIfExists: true) ] }
+        file_ch = BAMtoFastq ( ch_input_bams ).fastq_ch
+    } else if ( params.file_ext == "sra" ){
+        ch_input_sra = Channel
+                            .fromPath( fileList )
+                            .map{ row -> [ file(row).baseName, file(row, checkIfExists: true) ] }
+        file_ch = SRAtoFastq ( ch_input_sra ).fastq_ch
+    }
 
-    // TODO: changing the input meta-data to a data structure that will be available throughout the workflow.
-    // Inspired by NF-Core and Harshil
-// // Function to get list of [ meta, [ fastq_1, fastq_2 ] ]
-// def create_fastq_channels(LinkedHashMap row) {
-//     def meta = [:]
-//     meta.id           = row.sample
-//     meta.single_end   = row.single_end.toBoolean()
-
-//     def array = []
-//     if (!file(row.fastq_1).exists()) {
-//         exit 1, "ERROR: Please check input samplesheet -> Read 1 FastQ file does not exist!\n${row.fastq_1}"
-//     }
-//     if (meta.single_end) {
-//         array = [ meta, [ file(row.fastq_1) ] ]
-//     } else {
-//         if (!file(row.fastq_2).exists()) {
-//             exit 1, "ERROR: Please check input samplesheet -> Read 2 FastQ file does not exist!\n${row.fastq_2}"
-//         }
-//         array = [ meta, [ file(row.fastq_1), file(row.fastq_2) ] ]
-//     }
-//     return array    
-// }
-
+    emit:
+    file_ch
 }
 
-def getFileBaseNames(fileList) {
 
-    baseNames = [:]
 
-    bareFiles = []
+process BAMtoFastq {
+    tag "${name}"
+    // storeDir "${workflow.workDir}/rawreads"
 
-    for (String s : fileList) {
-       
-        if (params.single_end){
-            matcher = s =~ /^(.*).(fastq|fq).gz$/
+    conda (params.enable_conda ? 'bioconda::picard=2.25.7' : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/picard:2.25.7--hdfd78af_0' :
+        'quay.io/biocontainers/picard:2.25.7--hdfd78af_0' }"
 
-            if (matcher.matches()) {
-                bareFiles.add(matcher[0][1])
-            }
-        }
-        else{
+    input:
+    tuple val(name), path(input_reads)
 
-            // let's make a distinction for paired-end files already trimmed with Trim Galore
-            // Paired-end files trimmed with Trim Galore follow the following pattern:
-            // lane1_TGGTTGTT_small_test_L001_R1_val_1.fq.gz
-            // lane1_TGGTTGTT_small_test_L001_R3_val_2.fq.gz
+    output:
+    tuple val(name), path(output), emit: fastq_ch
 
-            if (s =~ /_val_/){
-                // println ("Input file '$s' looks like a Trim Galore paired-end file")
-                matcher = s =~ /^(.*)_(R?[1234]_val_[12]).(fastq|fq).gz$/
-                // in the above example, this would identify the following basename:
-                // lane1_TGGTTGTT_small_test_L001
-                // println (matcher[0])
-                if (matcher.matches()) {
-                    if (! baseNames.containsKey(matcher[0][1])) {
-                        baseNames[matcher[0][1]] = []
-                    }
-                    baseNames[matcher[0][1]].add(matcher[0][2])
-                }
-                else {
-                    matcher = s =~ /^(.*).(fastq|fq).gz$/
+    script:
+    def c_single_end = params.single_end ? "FASTQ=${name}.fastq" : "FASTQ=${name}_1.fastq SECOND_END_FASTQ=${name}_2.fastq"
+    output = params.single_end ? '*.fastq' : '*_{1,2}.fastq'
+    """
+    picard SamToFastq I=$input_reads $c_single_end VALIDATION_STRINGENCY=LENIENT
+    """
+}
 
-                    if (matcher.matches()) {
-                        bareFiles.add(matcher[0][1])
-                    }
-                }
-            
-            }
-            else{ // not Trim Galore processed
-                matcher = s =~ /^(.*)_(R?[1234]).(fastq|fq).gz$/
+process SRAtoFastq {
+    tag "${name}"
+    // storeDir "${workflow.workDir}/rawreads"
 
-                // println (matcher[0])
-                if (matcher.matches()) {
-                    if (! baseNames.containsKey(matcher[0][1])) {
-                        baseNames[matcher[0][1]] = []
-                    }
-                    baseNames[matcher[0][1]].add(matcher[0][2])
-                }
-                else {
-                    matcher = s =~ /^(.*).(fastq|fq).gz$/
+    conda (params.enable_conda ? 'bioconda::sra-tools=2.11.0' : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/sra-tools:2.11.0--pl5262h314213e_0' :
+        'quay.io/biocontainers/sra-tools:2.11.0--pl5262h314213e_0' }"
 
-                    if (matcher.matches()) {
-                        bareFiles.add(matcher[0][1])
-                    }
-                }
-            }
-        }
+    input:
+    tuple val(name), path(input_reads)
 
-    }
+    output:
+    tuple val(name), path(output), emit: fastq_ch
 
-    patterns = []
-    for (s in baseNames) {
-        // println (s)
-        pattern = s.key+"_{"+s.value.join(",")+"}.{fastq,fq}.gz"
-        patterns.add(pattern)
-        // println("$pattern")
-    }
-    for (s in bareFiles) {
-        pattern = s+".{fastq,fq}.gz"
-        patterns.add(pattern)
-    }
-
-    return(patterns)
+    script:
+    def c_single_end = params.single_end ? "" : "--split-files"
+    output = params.single_end ? '*.fastq' : '*_{1,2}.fastq'
+    """
+    fastq-dump $c_single_end $input_reads
+    """
 }

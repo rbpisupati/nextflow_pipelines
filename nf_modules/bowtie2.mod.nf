@@ -5,6 +5,11 @@ process BOWTIE2 {
 	
 	tag "$name" // Adds name to job submission instead of (1), (2) etc.
 
+	conda (params.enable_conda ? 'bioconda::bowtie2=2.4.2 bioconda::samtools=1.11 conda-forge::pigz=2.3.4' : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/mulled-v2-ac74a7f02cebcfcc07d8e8d1d750af9c83b4d45a:577a697be67b5ae9b16f637fd723b8263a3898b3-0' :
+        'quay.io/biocontainers/mulled-v2-ac74a7f02cebcfcc07d8e8d1d750af9c83b4d45a:577a697be67b5ae9b16f637fd723b8263a3898b3-0' }"
+
 	label 'bigMem'
 	label 'multiCore'
 		
@@ -19,7 +24,7 @@ process BOWTIE2 {
 		path "*stats.txt", emit: stats 
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
 	script:
 		if (verbose){

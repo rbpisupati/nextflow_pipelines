@@ -4,10 +4,14 @@ process BISMARK_DEDUPLICATION {
 	
 	tag "$bam" // Adds name to job submission instead of (1), (2) etc.
 
+	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
+        'quay.io/biocontainers/bismark:0.23.0--0' }"
+
 	// dynamic directive to increase memory as required
 	cpus = 1
 	memory { 20.GB * task.attempt }  
-	errorStrategy { sleep(Math.pow(2, task.attempt) * 30 as long); return 'retry' }
   	maxRetries 5
   	
     input:
@@ -21,7 +25,7 @@ process BISMARK_DEDUPLICATION {
 		tuple val(name), path ("*bam"),        emit: bam
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 		if (verbose){
@@ -33,7 +37,6 @@ process BISMARK_DEDUPLICATION {
 		deduplication_options += " --bam "
 
 		"""
-		module load bismark
 		deduplicate_bismark ${deduplication_options} ${bam}
 		"""
 

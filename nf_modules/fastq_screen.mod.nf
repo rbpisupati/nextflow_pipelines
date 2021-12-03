@@ -1,6 +1,7 @@
 nextflow.enable.dsl=2
 params.bisulfite = ''
 params.single_end = false
+params.fastq_screen_subset = 500000
 
 process FASTQ_SCREEN {
 	
@@ -9,9 +10,14 @@ process FASTQ_SCREEN {
 	// label 'hugeMem'
 	
 	label 'multiCore'
+
+	conda ( "/users/rahul.pisupati/.conda/envs/fastq_screen/" )
+	// conda (params.enable_conda ? "bioconda::fastq-screen=0.13.0" : null)
+    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+	// 	'https://depot.galaxyproject.org/singularity/fastq-screen%3A0.13.0--pl526_1' :
+    //     'quay.io/biocontainers/fastq-screen:0.13.0' }"
 	
 	memory { 30.GB * task.attempt }  
-	errorStrategy { sleep(Math.pow(2, task.attempt) * 30 as long); return 'retry' }
   	maxRetries 3
   	
     input:
@@ -26,10 +32,11 @@ process FASTQ_SCREEN {
 		path "*txt",  emit: report
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
-
+		fastq_screen_args += " --threads $task.cpus "
+		fastq_screen_args += " --subset ${params.fastq_screen_subset} "
 		if (verbose){
 			println ("[MODULE] FASTQ SCREEN ARGS: "+ fastq_screen_args)
 		}
@@ -50,7 +57,6 @@ process FASTQ_SCREEN {
 		}	
 
 	"""
-	module load fastq_screen
 	fastq_screen $fastq_screen_args $reads
 	"""
 

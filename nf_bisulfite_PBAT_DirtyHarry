@@ -5,6 +5,8 @@ nextflow.enable.dsl=2
 // This pipeline will first run paired-end alignments, with --unmapped specified, and then
 // run single-end alignments afterwards
 
+params.input_files = ""
+params.file_ext = "fastq"
 params.outdir = "."
 params.genome = ""
 
@@ -46,7 +48,7 @@ if (params.verbose){
     println ("[WORKFLOW] BISMARK METHYLATION EXTRACTOR ARGS ARE: " + params.bismark_methylation_extractor_args)
 }
 
-include { makeFilesChannel; getFileBaseNames } from './nf_modules/files.mod.nf'
+include { INPUT_FILES } from './nf_modules/files.mod.nf'
 include { getGenome }                             from './nf_modules/genomes.mod.nf'
 include { listGenomes }                           from './nf_modules/genomes.mod.nf'
 
@@ -84,27 +86,27 @@ include { BISMARK2SUMMARY }                      from './nf_modules/bismark2summ
 
 include { MULTIQC }                              from './nf_modules/multiqc.mod.nf' 
 
-file_ch = makeFilesChannel(args)
 
 workflow {
 
     main:
-        FASTQC                          (file_ch, params.outdir, params.fastqc_args, params.verbose)
-        TRIM_GALORE                     (file_ch, params.outdir, params.trim_galore_args, params.verbose)
-        FASTQ_SCREEN                    (TRIM_GALORE.out.reads, params.outdir, params.fastq_screen_args, params.verbose)
-        FASTQC2                         (TRIM_GALORE.out.reads, params.outdir, params.fastqc_args, params.verbose)
-        BISMARK                         (TRIM_GALORE.out.reads, params.outdir, params.bismark_args, params.verbose)
-        BISMARK_DEDUPLICATION           (BISMARK.out.bam, params.outdir, params.deduplicate_bismark_args, params.verbose)
+        file_ch = INPUT_FILES ( params.input_files  ).file_ch
+        FASTQC                          (file_ch, "${params.outdir}/fastqc" , params.fastqc_args, params.verbose)
+        TRIM_GALORE                     (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
+        FASTQ_SCREEN                    (TRIM_GALORE.out.reads, "${params.outdir}/fastq_screen", params.fastq_screen_args, params.verbose)
+        FASTQC2                         (TRIM_GALORE.out.reads, "${params.outdir}/fastqc_after_trim", params.fastqc_args, params.verbose)
+        BISMARK                         (TRIM_GALORE.out.reads, "${params.outdir}/bismark", params.bismark_args, params.verbose)
+        BISMARK_DEDUPLICATION           (BISMARK.out.bam, "${params.outdir}/bismark_dedup", params.deduplicate_bismark_args, params.verbose)
 
-        BISMARK_UN1                     (BISMARK.out.unmapped1, params.outdir, params.bismark_args, params.verbose)
-        BISMARK_DEDUP1                  (BISMARK_UN1.out.bam, params.outdir, params.deduplicate_bismark_args, params.verbose)
+        BISMARK_UN1                     (BISMARK.out.unmapped1, "${params.outdir}/bismark_unmapped1", params.bismark_args, params.verbose)
+        BISMARK_DEDUP1                  (BISMARK_UN1.out.bam, "${params.outdir}/bismark_dedup_unmapped1", params.deduplicate_bismark_args, params.verbose)
         
-        BISMARK_UN2                     (BISMARK.out.unmapped2, params.outdir, params.bismark_args, params.verbose) 
-        BISMARK_DEDUP2                  (BISMARK_UN2.out.bam, params.outdir, params.deduplicate_bismark_args, params.verbose)
+        BISMARK_UN2                     (BISMARK.out.unmapped2, "${params.outdir}/bismark_unmapped2", params.bismark_args, params.verbose) 
+        BISMARK_DEDUP2                  (BISMARK_UN2.out.bam, "${params.outdir}/bismark_dedup_unmapped1", params.deduplicate_bismark_args, params.verbose)
                
-        BISMARK_METHYLATION_EXTRACTOR   (BISMARK_DEDUPLICATION.out.bam, params.outdir, params.bismark_methylation_extractor_args, params.verbose)
-        METHXTRACT_UN1                  (BISMARK_DEDUP1.out.bam, params.outdir, params.bismark_methylation_extractor_args, params.verbose)
-        METHXTRACT_UN2                  (BISMARK_DEDUP2.out.bam, params.outdir, params.bismark_methylation_extractor_args, params.verbose)
+        BISMARK_METHYLATION_EXTRACTOR   (BISMARK_DEDUPLICATION.out.bam, "${params.outdir}/bismark_meth", params.bismark_methylation_extractor_args, params.verbose)
+        METHXTRACT_UN1                  (BISMARK_DEDUP1.out.bam, "${params.outdir}/bismark_meth_unmapped1", params.bismark_methylation_extractor_args, params.verbose)
+        METHXTRACT_UN2                  (BISMARK_DEDUP2.out.bam, "${params.outdir}/bismark_meth_unmapped2", params.bismark_methylation_extractor_args, params.verbose)
         
         // BISMARK_METHYLATION_EXTRACTOR.out.context_files_CG.view()
         // METHXTRACT_UN1.out.context_files_CG.view()
@@ -121,7 +123,7 @@ workflow {
                          .map { it ->  [ it[0], [it[1], it[2], it[3]].flatten() ] }
                          //.view()
        
-        BISMARK2BEDGRAPH                (ch_bismark2bedGraph, params.outdir, params.bismark2bedGraph_args, params.verbose)
+        BISMARK2BEDGRAPH                (ch_bismark2bedGraph, "${params.outdir}/bismark_bedgraph", params.bismark2bedGraph_args, params.verbose)
       
         // merging channels for Bismark reports
         bismark_report_ch = BISMARK.out.bam.mix(
@@ -141,7 +143,7 @@ workflow {
             METHXTRACT_UN2.out.mbias.ifEmpty([]),
         ).collect()
 
-        BISMARK2REPORT                   (bismark_report_ch, params.outdir, params.bismark2report_args, params.verbose)
+        BISMARK2REPORT                   (bismark_report_ch, "${params.outdir}/bismark_report", params.bismark2report_args, params.verbose)
 
         // merging channels for Bismark summary report
         // PAIRED-END only as it fails with a mixture of single-end and paired-end files
@@ -153,7 +155,7 @@ workflow {
         ).collect()
         // bismark_report_ch.subscribe {  println "Got: $it"  }
 
-        BISMARK2SUMMARY                  (bismark_summary_report_ch, params.outdir, params.bismark2summary_args, params.verbose)
+        BISMARK2SUMMARY                  (bismark_summary_report_ch, "${params.outdir}/bismark_summary", params.bismark2summary_args, params.verbose)
         
         // merging channels for MultiQC
         multiqc_ch = FASTQC.out.report.mix(
@@ -161,20 +163,20 @@ workflow {
             FASTQ_SCREEN.out.report.ifEmpty([]),
             FASTQC2.out.report.ifEmpty([]),
             BISMARK.out.report.ifEmpty([]),
-            BISMARK_UN1.out.report.ifEmpty([]),
-            BISMARK_UN2.out.report.ifEmpty([]),
+            // BISMARK_UN1.out.report.ifEmpty([]),
+            // BISMARK_UN2.out.report.ifEmpty([]),
             BISMARK_DEDUPLICATION.out.report.ifEmpty([]),
-            BISMARK_DEDUP1.out.report.ifEmpty([]),
-            BISMARK_DEDUP2.out.report.ifEmpty([]),
+            // BISMARK_DEDUP1.out.report.ifEmpty([]),
+            // BISMARK_DEDUP2.out.report.ifEmpty([]),
             BISMARK_METHYLATION_EXTRACTOR.out.report.ifEmpty([]),
             BISMARK_METHYLATION_EXTRACTOR.out.mbias.ifEmpty([]),
-            METHXTRACT_UN1.out.report.ifEmpty([]),
-            METHXTRACT_UN1.out.mbias.ifEmpty([]),
-            METHXTRACT_UN2.out.report.ifEmpty([]),
-            METHXTRACT_UN2.out.mbias.ifEmpty([]),
+            // METHXTRACT_UN1.out.report.ifEmpty([]),
+            // METHXTRACT_UN1.out.mbias.ifEmpty([]),
+            // METHXTRACT_UN2.out.report.ifEmpty([]),
+            // METHXTRACT_UN2.out.mbias.ifEmpty([]),
         ).collect()
 
-        MULTIQC                          (multiqc_ch, params.outdir, params.multiqc_args, params.verbose)
+        MULTIQC                          (multiqc_ch, "${params.outdir}/multiqc", params.multiqc_args, params.verbose)
 }
 
 // Since workflows with very long command lines tend to fail to get rendered at all, I was experimenting with a

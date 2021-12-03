@@ -11,12 +11,16 @@ process BISMARK {
 
 	tag "$name" // Adds name to job submission instead of (1), (2) etc.
 
+	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
+        'quay.io/biocontainers/bismark:0.23.0--0' }"
+
 	// TODO: Fix memory requirements, probably with error handling...
 	//label 'hugeMem'
 
 	cpus { 5 }
   	memory { 20.GB * task.attempt }  
-	errorStrategy { sleep(Math.pow(2, task.attempt) * 30 as long); return 'retry' }
   	maxRetries 3
 	
 	// label 'mem40G'
@@ -37,7 +41,7 @@ process BISMARK {
 		tuple val(name), path ("*unmapped_reads_2.fq.gz"), optional: true, emit: unmapped2
 
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
     script:
 		cores = 1
@@ -107,7 +111,6 @@ process BISMARK {
 		// println ("Output basename: $bismark_name")
 		
 		"""
-		module load bismark
 		bismark --parallel $cores --basename $bismark_name $index $bismark_options $readString
 		"""
 

@@ -11,9 +11,13 @@ genome = params.genome["bismark"]
 process COVERAGE2CYTOSINE {
 	tag "$coverage_file" // Adds name to job submission instead of (1), (2) etc.
 
+	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
+        'quay.io/biocontainers/bismark:0.23.0--0' }"
+
 	// dynamic directive
 	memory { 20.GB * task.attempt }  
-	errorStrategy { sleep(Math.pow(2, task.attempt) * 20 as long); return 'retry' }
 	maxRetries 5
 
     input:
@@ -28,7 +32,7 @@ process COVERAGE2CYTOSINE {
 		path "*cytosine_context_summary.txt", optional: true, emit: summary
 	
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
     
 	script:
 		
@@ -60,7 +64,6 @@ process COVERAGE2CYTOSINE {
 		}
 
 		"""
-		module load bismark
 		coverage2cytosine --genome $genome $cov2cyt_options --output ${outfile_basename} $coverage_file
 		"""
 		

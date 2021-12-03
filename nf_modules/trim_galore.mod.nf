@@ -15,10 +15,14 @@ process TRIM_GALORE {
 	tag "$name"                         // Adds name to job submission instead of (1), (2) etc.
 
 	label 'quadCore'                    // sets cpus = 4
+
+	conda (params.enable_conda ? 'bioconda::trim-galore=0.6.7' : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/trim-galore:0.6.7--hdfd78af_0' :
+        'quay.io/biocontainers/trim-galore:0.6.7--hdfd78af_0' }"
 	
 	// dynamic directive
 	memory { 10.GB * task.attempt }  
-	errorStrategy { sleep(Math.pow(2, task.attempt) * 30 as long); return 'retry' }
 	maxRetries 2
     
 	input:
@@ -28,11 +32,11 @@ process TRIM_GALORE {
 		val (verbose)
 
 	output:
-	    tuple val(name), path ("*fq.gz"), emit: reads
+	    tuple val(name), path ("*fq"), emit: reads
 		path "*trimming_report.txt", optional: true, emit: report
 		
 	publishDir "$outputdir",
-		mode: "link", overwrite: true
+		mode: "copy", overwrite: true
 
 
     script:
@@ -80,8 +84,6 @@ process TRIM_GALORE {
 		}
 
 		"""
-		module load trim_galore
-		module load fastqc
 		trim_galore $trim_galore_args ${pairedString} ${reads}
 		"""
 
