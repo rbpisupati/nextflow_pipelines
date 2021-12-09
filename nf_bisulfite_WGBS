@@ -6,11 +6,9 @@
 nextflow.enable.dsl=2
 
 params.outdir = "."
-params.genome = ""
+params.fasta = ""
 params.verbose = false
 params.single_end = false  // default mode is auto-detect. NOTE: params are automatically handed over 
-
-params.list_genomes = false;
 
 params.help = false
 // Show help message and exit
@@ -24,9 +22,10 @@ if (params.list_genomes){
 }
 
 params.fastqc_args = ''
+params.umeth = false
 params.fastq_screen_args = ''
-params.trim_galore_args = ''
-params.bismark_args = ''
+params.trim_galore_args = ' --clip_r1 15 --clip_r2 15 '
+params.bismark_args = " --non_directional --score_min L,0,0.5 "
 params.deduplicate_bismark_args = ''
 params.bismark_methylation_extractor_args = ''
 params.bismark2summary_args = ''
@@ -43,15 +42,9 @@ if (params.verbose){
     println ("[WORKFLOW] MULTIQC ARGS: "          + params.multiqc_args)
 }
 
-include { makeFilesChannel; getFileBaseNames }     from './nf_modules/files.mod.nf'
-include { getGenome }                              from './nf_modules/genomes.mod.nf'
-include { listGenomes }                            from './nf_modules/genomes.mod.nf'
 
-if (params.list_genomes){
-    listGenomes()  // this lists all available genomes, and exits
-}
-
-genome = getGenome(params.genome)
+include { INPUT_FILES }             from './nf_modules/files.mod.nf'
+include { PREPARE_GENOME }          from './nf_modules/genomes.mod.nf'
 
 include { FASTQC }                                from './nf_modules/fastqc.mod.nf'                         
 include { FASTQC as FASTQC2 }                     from './nf_modules/fastqc.mod.nf'
@@ -59,30 +52,41 @@ include { FASTQC as FASTQC2 }                     from './nf_modules/fastqc.mod.
 include { FASTQ_SCREEN }                          from './nf_modules/fastq_screen.mod.nf'   params(bisulfite: '--bisulfite')
 include { TRIM_GALORE }                           from './nf_modules/trim_galore.mod.nf'                    
 
-include { BISMARK }                               from './nf_modules/bismark.mod.nf'        params(genome: genome)
+include { BISMARK }                               from './nf_modules/bismark.mod.nf'
 include { BISMARK_DEDUPLICATION }                 from './nf_modules/bismark_deduplication.mod.nf'
 include { BISMARK_METHYLATION_EXTRACTOR }         from './nf_modules/bismark_methylation_extractor.mod.nf' 
 include { BISMARK2REPORT }                        from './nf_modules/bismark2report.mod.nf'
 include { BISMARK2SUMMARY }                       from './nf_modules/bismark2summary.mod.nf'
+include { METHYLPY_ALLC }                         from './nf_modules/methylpy.nf'         params(umeth: params.umeth)
+
+// include { SAMTOOLS_SORT }                     from './nf_modules/samtools.sort.nf'      params(samtools_index_options: params.samtools_index_options, samtools_sort_args: params.samtools_sort_args)
+include { SAMTOOLS_IDXSTAT }                     from './nf_modules/samtools.idxstat.nf' 
 
 include { MULTIQC }                               from './nf_modules/multiqc.mod.nf' 
 
-file_ch = makeFilesChannel(args)
 
 workflow {
 
     main:
-        FASTQC                 (file_ch, params.outdir, params.fastqc_args, params.verbose)
-        TRIM_GALORE            (file_ch, params.outdir, params.trim_galore_args, params.verbose)
-        FASTQ_SCREEN           (TRIM_GALORE.out.reads, params.outdir, params.fastq_screen_args, params.verbose)
-        FASTQC2                (TRIM_GALORE.out.reads, params.outdir, params.fastqc_args, params.verbose)
-        BISMARK                (TRIM_GALORE.out.reads, params.outdir, params.bismark_args, params.verbose)
-        BISMARK_DEDUPLICATION  (BISMARK.out.bam, params.outdir, params.deduplicate_bismark_args, params.verbose)
-        BISMARK_METHYLATION_EXTRACTOR(BISMARK_DEDUPLICATION.out.bam, params.outdir, params.bismark_methylation_extractor_args, params.verbose)
+        file_ch = INPUT_FILES ( params.input_files  ).file_ch
+        genome = PREPARE_GENOME( params.fasta )
+        FASTQC                 (file_ch, "$params.outdir/fastqc", params.fastqc_args, params.verbose)
+        TRIM_GALORE            (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
+        FASTQ_SCREEN           (TRIM_GALORE.out.reads, "${params.outdir}/fastq_screen", params.fastq_screen_args, params.verbose)
+        FASTQC2                (TRIM_GALORE.out.reads, "${params.outdir}/fastqc_trimmed", params.fastqc_args, params.verbose)
+        BISMARK                (TRIM_GALORE.out.reads, genome.bismark, "${params.outdir}/bismark", params.bismark_args, params.verbose)
+        BISMARK_DEDUPLICATION  (BISMARK.out.bam, "${params.outdir}/bismark_dedup", params.deduplicate_bismark_args, params.verbose)
+        SAMTOOLS_IDXSTAT       (BISMARK_DEDUPLICATION.out.bam, "${params.outdir}/samtools_idxstat", params.verbose)
+        // SAMTOOLS_SORT       (BISMARK_DEDUPLICATION.out.bam, "${params.outdir}/sorted_bam")
+        if ( params.umeth ){
+            METHYLPY_ALLC       (BISMARK_DEDUPLICATION.out.bam, genome.fasta, "${params.outdir}/methylpy")
+        }
+        BISMARK_METHYLATION_EXTRACTOR(BISMARK_DEDUPLICATION.out.bam, "${params.outdir}/bismark_meths", params.bismark_methylation_extractor_args, params.verbose)
 
         // merging channels for MultiQC
         multiqc_ch = FASTQC.out.report.mix(
             TRIM_GALORE.out.report,
+            SAMTOOLS_IDXSTAT.out.idxstat.ifEmpty([]),
             FASTQ_SCREEN.out.report.ifEmpty([]),
             FASTQC2.out.report.ifEmpty([]),
             BISMARK.out.report.ifEmpty([]),
@@ -100,9 +104,9 @@ workflow {
 
         // bismark_report_ch.subscribe {  println "Got: $it"  }
 
-        BISMARK2REPORT                   (bismark_report_ch, params.outdir, params.bismark2report_args, params.verbose)
-        BISMARK2SUMMARY                  (bismark_report_ch, params.outdir, params.bismark2summary_args, params.verbose)
-        MULTIQC                          (multiqc_ch, params.outdir, params.multiqc_args, params.verbose)
+        BISMARK2REPORT                   (bismark_report_ch, "${params.outdir}/bismark_report", params.bismark2report_args, params.verbose)
+        BISMARK2SUMMARY                  (bismark_report_ch, "${params.outdir}/bismark_summary", params.bismark2summary_args, params.verbose)
+        MULTIQC                          (multiqc_ch, "${params.outdir}/multiqc", params.multiqc_args, params.verbose)
 }
 
 // Since workflows with very long command lines tend to fail to get rendered at all, I was experimenting with a

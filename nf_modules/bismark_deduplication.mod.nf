@@ -2,7 +2,7 @@ nextflow.enable.dsl=2
 
 process BISMARK_DEDUPLICATION {
 	
-	tag "$bam" // Adds name to job submission instead of (1), (2) etc.
+	tag "$name" // Adds name to job submission instead of (1), (2) etc.
 
 	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?

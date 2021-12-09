@@ -10,7 +10,7 @@ process BISMARK_METHYLATION_EXTRACTOR {
 	label 'bigMem'          // 20G
 	label 'quadCore'        // 4 cores
 	
-	tag "$bam" // Adds name to job submission instead of (1), (2) etc.
+	tag "$name" // Adds name to job submission instead of (1), (2) etc.
 
 	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?

@@ -7,28 +7,20 @@ params.unmapped = false
 params.read_identity = ''
 
 process BISMARK {
-	
 
 	tag "$name" // Adds name to job submission instead of (1), (2) etc.
+	label 'process_high'
 
 	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/bismark:0.23.0--0' :
         'quay.io/biocontainers/bismark:0.23.0--0' }"
 
-	// TODO: Fix memory requirements, probably with error handling...
-	//label 'hugeMem'
-
-	cpus { 5 }
-  	memory { 20.GB * task.attempt }  
-  	maxRetries 3
 	
-	// label 'mem40G'
-	// label 'multiCore'
-	// label 'quadCore'
 		
     input:
 	    tuple val(name), path(reads)
+		tuple val(genome_name), path (genome)
 		val (outputdir)
 		val (bismark_args)
 		val (verbose)
@@ -80,7 +72,7 @@ process BISMARK {
 			readString = reads
 		}
 
-		index = "--genome " + params.genome["bismark"]
+		index = "--genome " + genome
 
 		unmapped_name = ''	
 			// add Genome build and aligner to output name
@@ -94,18 +86,18 @@ process BISMARK {
 			}
 
 			if (bismark_args =~ /-hisat/){ // if HISAT2 was given on the command line
-				bismark_name = unmapped_name + "_" + params.genome["name"] + "_bismark_hisat2"
+				bismark_name = unmapped_name + "_" + genome_name + "_bismark_hisat2"
 			}
 			else{ // default is Bowtie 2
-				bismark_name = unmapped_name + "_" + params.genome["name"] + "_bismark_bt2"
+				bismark_name = unmapped_name + "_" + genome_name + "_bismark_bt2"
 			}
 		}
 		else{
 			if (bismark_args =~ /-hisat/){ // if HISAT2 was given on the command line
-				bismark_name = name + "_" + params.genome["name"] + "_bismark_hisat2"
+				bismark_name = name + "_" + genome_name + "_bismark_hisat2"
 			}
 			else{ // default is Bowtie 2
-				bismark_name = name + "_" + params.genome["name"] + "_bismark_bt2"
+				bismark_name = name + "_" + genome_name + "_bismark_bt2"
 			}
 		}	
 		// println ("Output basename: $bismark_name")
