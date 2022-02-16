@@ -6,21 +6,22 @@ workflow PREPARE_GENOME {
 
     take:
     fasta_file
+    outputDir
 
     main:
 
-    ch_fasta = file(params.fasta)
-    ch_fasta_dir = ch_fasta.parent
-    ch_fasta_id = ch_fasta.baseName
+    ch_input_genome = Channel
+        .fromPath( fasta_file )
+        .map{ row -> [file(row).baseName, file(row).baseName, file(row)] }
 
-    BISMARK_GENOMEPREPARATION       ( ch_fasta_id, ch_fasta, ch_fasta_dir )
+    // ch_fasta_dir = ch_fasta.parent
+
+    prepare_genome = BISMARK_GENOMEPREPARATION ( ch_input_genome, outputDir )
 
     emit:
-    name             = ch_fasta_id
-    fasta            = ch_fasta            //    path: genome.fasta
+    fasta            = ch_input_genome            //    path: genome.fasta
     // chrom_sizes      = ch_chrom_sizes      //    path: genome.sizes
-    bismark          = BISMARK_GENOMEPREPARATION.out.index
-
+    bismark          = prepare_genome.index
     // rsem_index       = ch_rsem_index       //    path: rsem/index/
     // hisat2_index     = ch_hisat2_index     //    path: hisat2/index/
     // salmon_index     = ch_salmon_index     //    path: salmon/index/
@@ -41,7 +42,7 @@ workflow PREPARE_GENOME {
 process BISMARK_GENOMEPREPARATION {
     tag "$name"
     label 'process_medium'
-    storeDir "${params.outdir}"
+    storeDir "${outdir}"
         // mode: params.publish_dir_mode,
         // saveAs: { filename -> saveFiles(filename:filename, options:params.options, publish_dir:getSoftwareName(task.process), publish_id:'') }
 
@@ -53,19 +54,18 @@ process BISMARK_GENOMEPREPARATION {
     }
 
     input:
-    val(name)
-    path(fasta, stageAs: "BismarkIndex/*")
-    path (outdir)
+    tuple val(name), val(genome_id), path(fasta, stageAs: "BismarkIndex/*")
+    val(outdir)
 
     output:
-    tuple val(name), path("BismarkIndex"), emit: index
+    tuple val(name), val(genome_id), path("$genome_id"), emit: index
 
     script:
     """
-    bismark_genome_preparation \\
-        BismarkIndex
+    bismark_genome_preparation BismarkIndex
+    mv BismarkIndex/ $genome_id
     """
-        // $options.args \\
+    // $options.args \\
     // echo \$(bismark -v 2>&1) | sed 's/^.*Bismark Version: v//; s/Copyright.*\$//' > ${software}.version.txt
 }
 
