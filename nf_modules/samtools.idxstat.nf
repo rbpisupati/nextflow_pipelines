@@ -11,7 +11,7 @@ process SAMTOOLS_IDXSTAT{
         'quay.io/biocontainers/samtools:1.14--hb421002_0' }"
 
 	input:
-		tuple val(name), path( bam )
+		tuple val(name), path( bam ), path(bam_idx)
 		val (outputdir)
 		val (verbose)
 
@@ -26,7 +26,6 @@ process SAMTOOLS_IDXSTAT{
 			println ("[MODULE] SAMTOOLS IDXSTAT " )
 		}
 		"""
-		samtools sort $bam -o ${name}_sorted.bam
-		samtools idxstat ${name}_sorted.bam > ${name}_idxstat.txt
+		samtools idxstat $bam > ${name}_idxstat.txt
     	"""
 }

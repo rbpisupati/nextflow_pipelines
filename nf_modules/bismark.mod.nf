@@ -19,8 +19,7 @@ process BISMARK {
 	
 		
     input:
-	    tuple val(name), path(reads)
-		tuple val(genome_name), path (genome)
+	    tuple val(name), path(reads), val(genome_name), path (genome)
 		val (outputdir)
 		val (bismark_args)
 		val (verbose)
@@ -36,7 +35,6 @@ process BISMARK {
 		mode: "copy", overwrite: true
 
     script:
-		cores = 1
 		readString = ""
 
 		if (verbose){
@@ -103,7 +101,7 @@ process BISMARK {
 		// println ("Output basename: $bismark_name")
 		
 		"""
-		bismark --parallel $cores --basename $bismark_name $index $bismark_options $readString
+		bismark --parallel $task.cpus --basename $bismark_name $index $bismark_options $readString
 		"""
 
 }

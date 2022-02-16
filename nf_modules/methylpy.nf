@@ -19,8 +19,7 @@ process METHYLPY_ALLC {
         }
 
     input:
-    tuple val(name), path(bam)
-    path (genome)
+    tuple val(name), path(bam), path(bam_idx), val(genome_name), path(genome)
     val (outputdir)
 
     output:
@@ -31,14 +30,12 @@ process METHYLPY_ALLC {
 
     script:
     """
-    samtools sort $bam -o ${name}_sorted.bam
-	samtools index ${name}_sorted.bam
     methylpy call-methylation-state \
-    --input-file ${name}_sorted.bam  \
+    --input-file ${bam}  \
     --paired-end True \
     --sample $name \
     --ref-fasta $genome \
-    --unmethylated-control $params.umeth \
+    --unmethylated-control "$params.umeth" \
     --num-procs ${task.cpus} > log.txt 2>&1
     cat log.txt | grep "non-conversion rate" > conversion_rate_${name}.txt
     """

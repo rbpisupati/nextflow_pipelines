@@ -4,7 +4,7 @@ params.singlecell = false
 params.rrbs       = false
 params.verbose    = false
 params.pbat       = false
-params.nonCG      = false
+params.nonCG      = true
 
 process BISMARK_METHYLATION_EXTRACTOR {
 	label 'bigMem'          // 20G
@@ -39,7 +39,6 @@ process BISMARK_METHYLATION_EXTRACTOR {
 			println ("[MODULE] BISMARK METHYLATION EXTRACTOR ARGS: " + bismark_methylation_extractor_args)
 		}
 
-		cores = 4
 
 		// Options we add are
 		methXtract_options = bismark_methylation_extractor_args + " --gzip "
@@ -69,7 +68,7 @@ process BISMARK_METHYLATION_EXTRACTOR {
 
 		// println ("Now running command: bismark_methylation_extractor -parallel ${cores} ${methXtract_options} ${bam}")
 		"""
-		bismark_methylation_extractor --bedGraph --buffer 10G -parallel ${cores} ${methXtract_options} ${bam}
+		bismark_methylation_extractor --bedGraph --buffer 10G -parallel $task.cpus ${methXtract_options} ${bam}
 		"""
 
 }
