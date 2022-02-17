@@ -44,8 +44,8 @@ process BAMtoFastq {
     tuple val(name), path(output), emit: fastq_ch
 
     script:
-    def c_single_end = params.single_end ? "FASTQ=${name}.fastq" : "FASTQ=${name}_1.fastq SECOND_END_FASTQ=${name}_2.fastq"
-    output = params.single_end ? '*.fastq' : '*_{1,2}.fastq'
+    def c_single_end = params.single_end ? "FASTQ=${name}.fastq.gz" : "FASTQ=${name}_1.fastq.gz SECOND_END_FASTQ=${name}_2.fastq.gz"
+    output = params.single_end ? '*.fastq.gz' : '*_{1,2}.fastq.gz'
     """
     picard SamToFastq I=$input_reads $c_single_end VALIDATION_STRINGENCY=LENIENT
     """
@@ -55,10 +55,11 @@ process SRAtoFastq {
     tag "${name}"
     // storeDir "${workflow.workDir}/rawreads"
 
-    conda (params.enable_conda ? 'bioconda::sra-tools=2.11.0' : null)
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/sra-tools:2.11.0--pl5262h314213e_0' :
-        'quay.io/biocontainers/sra-tools:2.11.0--pl5262h314213e_0' }"
+    module = ['build-env/2020', 'sra-toolkit/2.9.6-1-centos_linux64']
+    // conda (params.enable_conda ? 'bioconda::sra-tools=2.11.0' : null)
+    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    //     'https://depot.galaxyproject.org/singularity/sra-tools:2.11.0--pl5262h314213e_0' :
+    //     'quay.io/biocontainers/sra-tools:2.11.0--pl5262h314213e_0' }"
 
     input:
     tuple val(name), path(input_reads)
@@ -68,8 +69,8 @@ process SRAtoFastq {
 
     script:
     def c_single_end = params.single_end ? "" : "--split-files"
-    output = params.single_end ? '*.fastq' : '*_{1,2}.fastq'
+    output = params.single_end ? '*.fastq.gz' : '*_{1,2}.fastq.gz'
     """
-    fastq-dump $c_single_end $input_reads
+    fastq-dump --gzip $c_single_end $input_reads
     """
 }
