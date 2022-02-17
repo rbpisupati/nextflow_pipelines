@@ -5,6 +5,7 @@ params.singlecell = ''
 params.pbat = false
 params.unmapped = false
 params.read_identity = ''
+params.save_intermediate = false
 
 process BISMARK {
 
@@ -25,14 +26,21 @@ process BISMARK {
 		val (verbose)
 
 	output:
-	    tuple val(name), path ("*bam"),        emit: bam
+	    tuple val(name), path ("${name}_${genome_name}_bismark_bt2.bam"),        emit: bam
 		path "*report.txt", emit: report
 		// we always pass back the original name so we can use .join() later on, e.g. for bismark2bedGraph
 		tuple val(name), path ("*unmapped_reads_1.fq.gz"), optional: true, emit: unmapped1
 		tuple val(name), path ("*unmapped_reads_2.fq.gz"), optional: true, emit: unmapped2
 
-	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+	
+	publishDir "$outputdir", mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( filename.indexOf("report.txt") > 0 ) "reports/$filename"
+			// else if( filename.indexOf("fq.gz" ) > 0) "unmapped/$filename"
+			else if( params.save_intermediate ) filename
+			else null
+		}
+
 
     script:
 		readString = ""
@@ -99,9 +107,11 @@ process BISMARK {
 			}
 		}	
 		// println ("Output basename: $bismark_name")
-		
+		// --basename $bismark_name
 		"""
-		bismark --parallel $task.cpus --basename $bismark_name $index $bismark_options $readString
+		bismark --parallel $task.cpus $index $bismark_options $readString
+		mv *1_bismark_bt2_pe.bam ${name}_${genome_name}_bismark_bt2.bam
 		"""
+		// mv 
 
 }
