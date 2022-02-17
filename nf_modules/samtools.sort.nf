@@ -1,7 +1,5 @@
 nextflow.enable.dsl=2
 
-params.samtools_sort_args = ""
-params.samtools_index_options = ""
 
 process SAMTOOLS_SORT {
 	tag "$name"
@@ -20,12 +18,15 @@ process SAMTOOLS_SORT {
 		val(outputdir)
 	
 	output:
-		tuple val(name), path("*_sorted.bam"), path("*_sorted.bam.bai"), 	emit: bam
+		tuple val(name), path("*sorted.bam"), path("*sorted.bam.bai"), 	emit: bam
 
 	script:
+	def avail_mem = task.memory ? ((task.memory.toGiga() - 6) / task.cpus).trunc() : false
+	def sort_mem = avail_mem && avail_mem > 2 ? "-m ${avail_mem}G" : ''
+	output_name = bam.baseName.replaceAll(/.deduplicated/,"")
 	"""
-	samtools sort $params.samtools_sort_args $bam -o ${name}_sorted.bam
-	samtools index $params.samtools_index_options ${name}_sorted.bam
+	samtools sort $params.samtools_sort_args $bam $sort_mem -o ${output_name}.sorted.bam
+	samtools index ${output_name}.sorted.bam
 	"""
 
 }
