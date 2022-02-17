@@ -33,7 +33,7 @@ process TRIM_GALORE {
 		val (verbose)
 
 	output:
-	    tuple val(name), path ("*fq"), emit: reads
+	    tuple val(name), path ("*fq.gz"), emit: reads
 		path "*trimming_report.txt", optional: true, emit: report
 		
 	
