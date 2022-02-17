@@ -1,5 +1,7 @@
 nextflow.enable.dsl=2
 
+params.save_intermediate = false
+
 process BISMARK2SUMMARY {
 
 	conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
@@ -18,7 +20,11 @@ process BISMARK2SUMMARY {
 		path "*txt",        emit: report 
 
 	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
 
     script:
 		// We need to replace single quotes in the arguments so that they are not getting passed in as a single string

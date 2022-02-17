@@ -1,4 +1,5 @@
 nextflow.enable.dsl=2
+params.save_intermediate = false
 
 process SAMTOOLS_IDXSTAT{	
     
@@ -19,7 +20,11 @@ process SAMTOOLS_IDXSTAT{
 		path "*txt",        emit: idxstat
 
 	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
 	
     script:
 		if (verbose){

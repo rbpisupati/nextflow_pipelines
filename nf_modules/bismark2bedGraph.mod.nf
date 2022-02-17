@@ -2,7 +2,7 @@ nextflow.enable.dsl=2
 
 // parameters passed in by specialised pipelines
 params.dirty_harry = false
-
+params.save_intermediate = false
 
 process BISMARK2BEDGRAPH {
 	
@@ -26,7 +26,11 @@ process BISMARK2BEDGRAPH {
 		path "*bedGraph.gz",   emit: bedGraph
 		
 	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
 
     script:
 

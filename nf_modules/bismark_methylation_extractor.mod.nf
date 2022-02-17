@@ -5,6 +5,7 @@ params.rrbs       = false
 params.verbose    = false
 params.pbat       = false
 params.nonCG      = true
+params.save_intermediate = false
 
 process BISMARK_METHYLATION_EXTRACTOR {
 	label 'bigMem'          // 20G
@@ -30,9 +31,16 @@ process BISMARK_METHYLATION_EXTRACTOR {
 		path "*M-bias.txt",                     emit: mbias
 		path "*cov.gz",                         emit: coverage
 	
-	publishDir "$outputdir",
-		mode: "copy", overwrite: true
-    
+	publishDir "$outputdir", mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( filename.indexOf("report.txt") > 0 ) "report/$filename"
+			else if( filename.indexOf("M-bias.txt") > 0 ) "bias/$filename"
+			else if( filename.indexOf("cov.gz") > 0 ) "coverage/$filename"
+			// else if( filename.indexOf("fq.gz" ) > 0) "unmapped/$filename"
+			else if( params.save_intermediate ) filename
+			else null
+		}
+
 	script:
 		
 		if (verbose){

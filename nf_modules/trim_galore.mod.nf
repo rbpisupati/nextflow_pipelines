@@ -8,6 +8,7 @@ params.single_end = false
 // For Epigenetic Clock Processing
 params.three_prime_clip_R1 = ''
 params.three_prime_clip_R2 = ''
+params.save_intermediate = false
 
 
 process TRIM_GALORE {	
@@ -35,8 +36,14 @@ process TRIM_GALORE {
 	    tuple val(name), path ("*fq"), emit: reads
 		path "*trimming_report.txt", optional: true, emit: report
 		
-	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+	
+	publishDir "$outputdir", mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( filename.indexOf("_fastqc") > 0 ) "fastqc/$filename"
+			else if( filename.indexOf("trimming_report.txt" ) > 0) "trim_report/$filename"
+			else if( params.save_intermediate ) filename
+			else null
+		}
 
 
     script:

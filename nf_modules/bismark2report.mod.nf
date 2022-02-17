@@ -1,4 +1,5 @@
 nextflow.enable.dsl=2
+params.save_intermediate = false
 
 process BISMARK2REPORT {
 
@@ -17,7 +18,11 @@ process BISMARK2REPORT {
 	    path "*html",       emit: html
 		
 	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
 
     script:
 		if (verbose){
