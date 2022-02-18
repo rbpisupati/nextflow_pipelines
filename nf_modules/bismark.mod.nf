@@ -26,11 +26,11 @@ process BISMARK {
 		val (verbose)
 
 	output:
-	    tuple val(name), path ("${name}_${genome_name}_bismark_bt2.bam"),        emit: bam
-		path "*report.txt", emit: report
+	    tuple val(name), path ("${name}_${genome_name}*bismark_bt2*bam"),       emit: bam
+		path "${name}_${genome_name}_bismark_bt2_*.txt",						emit: report
 		// we always pass back the original name so we can use .join() later on, e.g. for bismark2bedGraph
-		tuple val(name), path ("*unmapped_reads_1.fq.gz"), optional: true, emit: unmapped1
-		tuple val(name), path ("*unmapped_reads_2.fq.gz"), optional: true, emit: unmapped2
+		tuple val(name), path ("*unmapped_reads_1.fq.gz"), optional: true,		emit: unmapped1
+		tuple val(name), path ("*unmapped_reads_2.fq.gz"), optional: true,		emit: unmapped2
 
 	
 	publishDir "$outputdir", mode: "copy", overwrite: true,
@@ -78,7 +78,6 @@ process BISMARK {
 			readString = reads
 		}
 
-		index = "--genome " + genome
 
 		unmapped_name = ''	
 			// add Genome build and aligner to output name
@@ -109,9 +108,13 @@ process BISMARK {
 		// println ("Output basename: $bismark_name")
 		// --basename $bismark_name
 		"""
-		bismark --parallel $task.cpus $index $bismark_options $readString
-		mv *1_bismark_bt2_pe.bam ${name}_${genome_name}_bismark_bt2.bam
+		bismark  \
+			--parallel $task.cpus \
+			--genome $genome \
+			$bismark_options $readString
+		mv *1_bismark_bt2_pe.bam ${name}_${genome_name}_bismark_bt2_pe.bam
+		mv *1_bismark_bt2_se.bam ${name}_${genome_name}_bismark_bt2_se.bam
+		mv *1_bismark_bt2_PE_report.txt ${name}_${genome_name}_bismark_bt2_PE_report.txt
+		mv *1_bismark_bt2_SE_report.txt ${name}_${genome_name}_bismark_bt2_SE_report.txt
 		"""
-		// mv 
-
 }
