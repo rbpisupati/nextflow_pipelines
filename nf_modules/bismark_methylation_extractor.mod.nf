@@ -6,6 +6,7 @@ params.verbose    = false
 params.pbat       = false
 params.nonCG      = true
 params.save_intermediate = false
+params.bismark_methylation_extractor_args = " "
 
 process BISMARK_METHYLATION_EXTRACTOR {
 	label 'bigMem'          // 20G
@@ -19,37 +20,38 @@ process BISMARK_METHYLATION_EXTRACTOR {
         'quay.io/biocontainers/bismark:0.23.0--0' }"
 
     input:
-	    tuple val (name), path(bam)
+	    tuple val (name), path(bam), val(genome_name), path (genome)
 		val (outputdir)
-		val (bismark_methylation_extractor_args)
 		val (verbose)
 
 	output:
-	    tuple val (name), path ("CpG*"),        emit: context_files_CG
-		path "CH*",                             emit: context_files_nonCG
-		path "*report.txt",                     emit: report
-		path "*M-bias.txt",                     emit: mbias
-		path "*cov.gz",                         emit: coverage
+	    tuple val (name), path ("CpG*"),        		emit: context_files_CG
+		tuple val(name), path("*CX_report.txt.gz"),		emit: cx_report
+		path "CH*",                             		emit: context_files_nonCG
+		path "*report.txt",                     		emit: report
+		path "*M-bias.txt",                     		emit: mbias
+		path "*cov.gz",                         		emit: coverage
 	
 	publishDir "$outputdir", mode: "copy", overwrite: true,
 		saveAs: {filename ->
-			if( filename.indexOf("report.txt") > 0 ) "report/$filename"
-			else if( filename.indexOf("M-bias.txt") > 0 ) "bias/$filename"
-			else if( filename.indexOf("cov.gz") > 0 ) "coverage/$filename"
+			if( filename.indexOf("CX_report.txt.gz") > 0 ) "cx_report/$filename"
+			else if( filename.indexOf("report.txt") > 0 ) "report/$filename"
+			else if( filename.indexOf("M-bias.txt") > 0 && params.save_intermediate ) "bias/$filename"
+			else if( filename.indexOf("cov.gz") > 0 && params.save_intermediate ) "coverage/$filename"
 			// else if( filename.indexOf("fq.gz" ) > 0) "unmapped/$filename"
-			else if( params.save_intermediate ) filename
+			// else if( params.save_intermediate ) filename
 			else null
 		}
 
 	script:
 		
 		if (verbose){
-			println ("[MODULE] BISMARK METHYLATION EXTRACTOR ARGS: " + bismark_methylation_extractor_args)
+			println ("[MODULE] BISMARK METHYLATION EXTRACTOR ARGS: " + params.bismark_methylation_extractor_args)
 		}
 
 
 		// Options we add are
-		methXtract_options = bismark_methylation_extractor_args + " --gzip "
+		methXtract_options = params.bismark_methylation_extractor_args + " --gzip --genome_folder $genome --cytosine_report --bedGraph  "
 		
 		if (params.singlecell){
 			// println ("FLAG SINGLE CELL SPECIFIED: PROCESSING ACCORDINGLY")
@@ -76,7 +78,7 @@ process BISMARK_METHYLATION_EXTRACTOR {
 
 		// println ("Now running command: bismark_methylation_extractor -parallel ${cores} ${methXtract_options} ${bam}")
 		"""
-		bismark_methylation_extractor --bedGraph --buffer 10G -parallel $task.cpus ${methXtract_options} ${bam}
+		bismark_methylation_extractor --buffer 10G -parallel $task.cpus ${methXtract_options} ${bam}
 		"""
 
 }
