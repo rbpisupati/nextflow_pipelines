@@ -9,6 +9,7 @@ params.input_files = false
 params.file_ext = "bam"
 params.outdir = "."
 params.fasta = false // if not given, you need to provide a sample sheet
+params.umeth = "ChrC"
 
 
 params.verbose = false
@@ -27,7 +28,6 @@ if (params.list_genomes){
 }
 
 params.fastqc_args = ''
-params.umeth = false
 params.fastq_screen_args = ''
 params.trim_galore_args = ' --clip_r1 15 --clip_r2 15 '
 params.bismark_args = " --non_directional --score_min L,0,0.5 "
@@ -61,10 +61,11 @@ include { TRIM_GALORE }                           from './nf_modules/trim_galore
 
 include { BISMARK }                               from './nf_modules/bismark.mod.nf'                        params(save_intermediate: params.save_intermediate)
 include { BISMARK_DEDUPLICATION }                 from './nf_modules/bismark_deduplication.mod.nf'          params(save_intermediate: params.save_intermediate)
-include { BISMARK_METHYLATION_EXTRACTOR }         from './nf_modules/bismark_methylation_extractor.mod.nf'  params(save_intermediate: params.save_intermediate)
+include { BISMARK_METHYLATION_EXTRACTOR }         from './nf_modules/bismark_methylation_extractor.mod.nf'  params(bismark_methylation_extractor_args: params.bismark_methylation_extractor_args, save_intermediate: params.save_intermediate)
 include { BISMARK2REPORT }                        from './nf_modules/bismark2report.mod.nf'                 params(save_intermediate: params.save_intermediate)
 include { BISMARK2SUMMARY }                       from './nf_modules/bismark2summary.mod.nf'                params(save_intermediate: params.save_intermediate)
-include { METHYLPY_ALLC }                         from './nf_modules/methylpy.nf'                           params(umeth: params.umeth)
+
+include { BISMARK_TO_HDF5 }                         from './nf_modules/bshap_get_hdf5.nf'                           params(umeth: params.umeth)
 
 include { SAMTOOLS_SORT }                     from './nf_modules/samtools.sort.nf'                          params(samtools_sort_args: params.samtools_sort_args)
 include { SAMTOOLS_IDXSTAT }                     from './nf_modules/samtools.idxstat.nf'                    params(save_intermediate: params.save_intermediate)
@@ -80,32 +81,40 @@ workflow {
             genome = PREPARE_GENOME( params.fasta, "$params.outdir/genome_index" )
             FASTQC                 (file_ch, "$params.outdir/fastqc", params.fastqc_args, params.verbose)
             TRIM_GALORE            (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
-
-            input_files = TRIM_GALORE.out.reads.combine( genome.bismark.map{ row -> [row[0], row[2]] } )
-            BISMARK                (input_files, "${params.outdir}/bismark", params.bismark_args, params.verbose)
+            
+            ch_input_files_to_map = TRIM_GALORE.out.reads.combine( genome.bismark.map{ row -> [row[0], row[2]] } )
 
         } else {
             files_ch = INPUT_SAMPLESHEET ( params.input_files, "$params.outdir/genome_indices" )
 
             FASTQC                 (files_ch.reads, "$params.outdir/fastqc", params.fastqc_args, params.verbose)
             TRIM_GALORE            (files_ch.reads, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
-        
-            input_files = TRIM_GALORE.out.reads.combine( files_ch.bismark, by: 0  )
-            BISMARK                (input_files, "${params.outdir}/bismark", params.bismark_args, params.verbose)
+            
+            ch_input_files_to_map = TRIM_GALORE.out.reads.combine( files_ch.bismark, by: 0  )
+
         }
 
-        
+        BISMARK                (ch_input_files_to_map, "${params.outdir}/bismark", params.bismark_args, params.verbose)
         // FASTQ_SCREEN           (TRIM_GALORE.out.reads, "${params.outdir}/fastq_screen", params.fastq_screen_args, params.verbose)
         FASTQC2                (TRIM_GALORE.out.reads, "${params.outdir}/fastqc_trimmed", params.fastqc_args, params.verbose)
 
         BISMARK_DEDUPLICATION  (BISMARK.out.bam, "${params.outdir}/bismark_dedup", params.deduplicate_bismark_args, params.verbose)
         SAMTOOLS_SORT       (BISMARK_DEDUPLICATION.out.bam, "${params.outdir}/sorted_bam")
         SAMTOOLS_IDXSTAT       (SAMTOOLS_SORT.out.bam, "${params.outdir}/samtools_idxstat", params.verbose)
-        // if ( params.umeth ){
-        //     input_methylpy = BISMARK_DEDUPLICATION.out.bam.combine( genome.fasta.map{ row -> [row[0], row[2]] } )
-        //     METHYLPY_ALLC       (input_methylpy, "${params.outdir}/methylpy")
-        // }
-        BISMARK_METHYLATION_EXTRACTOR(BISMARK_DEDUPLICATION.out.bam, "${params.outdir}/bismark_meths", params.bismark_methylation_extractor_args, params.verbose)
+        
+        if (params.fasta){
+            ch_input_meth_extract = BISMARK_DEDUPLICATION.out.bam.combine( genome.bismark.map{ row -> [row[0], row[2]] } )
+        } else {
+            ch_input_meth_extract = BISMARK_DEDUPLICATION.out.bam.combine( files_ch.bismark, by: 0 )
+        }
+        BISMARK_METHYLATION_EXTRACTOR(ch_input_meth_extract, "${params.outdir}/bismark_meths", params.verbose)
+
+        if (params.fasta){
+            ch_input_files_for_hdf5 = BISMARK_METHYLATION_EXTRACTOR.out.cx_report.combine( genome.fasta.map{ row -> [row[0], row[2]] } )
+        } else {
+            ch_input_files_for_hdf5 = BISMARK_METHYLATION_EXTRACTOR.out.cx_report.combine( files_ch.fasta, by: 0 )
+        }
+        BISMARK_TO_HDF5( ch_input_files_for_hdf5, "${params.outdir}" )
 
         // merging channels for MultiQC
         multiqc_ch = FASTQC.out.report.mix(
