@@ -112,9 +112,9 @@ process BISMARK {
 			--parallel $task.cpus \
 			--genome $genome \
 			$bismark_options $readString
-		mv *_pe.bam ${bismark_name}_pe.bam
-		mv *_se.bam ${bismark_name}_se.bam
-		mv *_PE_report.txt ${bismark_name}_PE_report.txt
-		mv *_SE_report.txt ${bismark_name}_SE_report.txt
+		[ -f *_pe.bam ] && mv *_pe.bam ${bismark_name}_pe.bam
+		[ -f *_se.bam ] && mv *_se.bam ${bismark_name}_se.bam
+		[ -f *_PE_report.txt ] && mv *_PE_report.txt ${bismark_name}_PE_report.txt
+		[ -f *_SE_report.txt ] && mv *_SE_report.txt ${bismark_name}_SE_report.bam
 		"""
 }
