@@ -26,8 +26,8 @@ process BISMARK {
 		val (verbose)
 
 	output:
-	    tuple val(name), path ("${bismark_name}*bam"),       					emit: bam
-		path "${bismark_name}*_report.txt",										emit: report
+	    tuple val(name), path ("*bam"),				emit: bam
+		path("*_report.txt"),	emit: report
 		// we always pass back the original name so we can use .join() later on, e.g. for bismark2bedGraph
 		tuple val(name), path ("*unmapped_reads_1.fq.gz"), optional: true,		emit: unmapped1
 		tuple val(name), path ("*unmapped_reads_2.fq.gz"), optional: true,		emit: unmapped2
@@ -112,9 +112,9 @@ process BISMARK {
 			--parallel $task.cpus \
 			--genome $genome \
 			$bismark_options $readString
-		[ -f *_pe.bam ] && mv *_pe.bam ${bismark_name}_pe.bam
-		[ -f *_se.bam ] && mv *_se.bam ${bismark_name}_se.bam
-		[ -f *_PE_report.txt ] && mv *_PE_report.txt ${bismark_name}_PE_report.txt
-		[ -f *_SE_report.txt ] && mv *_SE_report.txt ${bismark_name}_SE_report.bam
 		"""
+		// [ -f *_pe.bam ] && mv *_pe.bam ${bismark_name}_pe.bam
+		// [ -f *_se.bam ] && mv *_se.bam ${bismark_name}_se.bam
+		// [ -f *_PE_report.txt ] && mv *_PE_report.txt ${bismark_name}_PE_report.txt
+		// [ -f *_SE_report.txt ] && mv *_SE_report.txt ${bismark_name}_SE_report.txt
 }
