@@ -37,6 +37,7 @@ workflow PREPARE_GENOME_RNA {
     take:
     fasta_file
     gtf_file
+    transcript_fasta
     outputDir
 
     main:
@@ -48,6 +49,7 @@ workflow PREPARE_GENOME_RNA {
         
 
     ch_gtf_file = Channel.fromPath( gtf_file )
+    ch_transcript = Channel.fromPath( transcript_fasta )
     // ch_fasta_dir = ch_fasta.parent
 
     prepare_genome = STAR_GENOMEPREPARATION ( ch_input_genome, ch_gtf_file, outputDir )
@@ -55,6 +57,7 @@ workflow PREPARE_GENOME_RNA {
     emit:
     fasta       = ch_input_genome            //    path: genome.fasta
     gtf         = ch_gtf_file
+    transcript  = ch_transcript
     // chrom_sizes      = ch_chrom_sizes      //    path: genome.sizes
     star        = prepare_genome.index
     // rsem_index       = ch_rsem_index       //    path: rsem/index/
