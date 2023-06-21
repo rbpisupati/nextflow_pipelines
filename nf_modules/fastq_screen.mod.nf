@@ -8,14 +8,12 @@ process FASTQ_SCREEN {
 	tag "$name" // Adds name to job submission instead of (1), (2) etc.
 
 	// label 'hugeMem'
-	
 	label 'multiCore'
 
-	conda ( "/users/rahul.pisupati/.conda/envs/fastq_screen/" )
 	// conda (params.enable_conda ? "bioconda::fastq-screen=0.13.0" : null)
-    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-	// 	'https://depot.galaxyproject.org/singularity/fastq-screen%3A0.13.0--pl526_1' :
-    //     'quay.io/biocontainers/fastq-screen:0.13.0' }"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+		'https://depot.galaxyproject.org/singularity/fastq-screen:0.15.2--pl5321hdfd78af_0' :
+        'biocontainers/fastq-screen:0.15.2--pl5321hdfd78af_0' }"
 	
 	memory { 30.GB * task.attempt }  
   	maxRetries 3
@@ -36,7 +34,10 @@ process FASTQ_SCREEN {
 
     script:
 		fastq_screen_args += " --threads $task.cpus "
-		fastq_screen_args += " --subset ${params.fastq_screen_subset} "
+		fastq_screen_args = (fastq_screen_args.contains('--aligner')) ? fastq_screen_args : fastq_screen_args + " --aligner bwa "
+		fastq_screen_args = (fastq_screen_args.contains('--conf')) ? fastq_screen_args : fastq_screen_args + " --conf  ${workflow.projectDir}/configs/fastq_screen.conf "
+
+		// fastq_screen_args += " --subset ${params.fastq_screen_subset} "
 		if (verbose){
 			println ("[MODULE] FASTQ SCREEN ARGS: "+ fastq_screen_args)
 		}
