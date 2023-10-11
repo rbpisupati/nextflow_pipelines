@@ -3,6 +3,7 @@ nextflow.enable.dsl=2
 
 params.args_kallisto = false
 params.args_kallisto_prep = false
+params.single_end = [:]
 
 
 workflow KALLISTO {
@@ -100,9 +101,10 @@ process KALLISTO_QUANT {
     
     args = (args.contains('--bootstrap')) ? args : args + ' --bootstrap-samples 100 '
 
-    // def single = meta.single_end ? "--single --fragment-length ${task.ext.fragment_len} --sd ${task.ext.sd}" : ""
-    // ${single} \\
-            
+    if (params.single_end){
+        args = args + ' --single --fragment-length 500 --sd 10 '
+    }
+    // def single = meta.single_end ? "--single  ${task.ext.fragment_len} --sd ${task.ext.sd}" : ""        
     
     // def chromosomes_input = chromosomes ? "--chromosomes ${chromosomes}" : ''
     // ${chromosomes_input} \\

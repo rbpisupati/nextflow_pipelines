@@ -1,18 +1,33 @@
 #!/usr/bin/env nextflow
-nextflow.preview.dsl=2
+nextflow.enable.dsl=2
 
-// last modified 13 October 2020
+// last modified March 2023
+
+// Required inputs
+params.input = false
+params.file_ext = "fastq"
+
+// If fasta file is given, then same genome reference is used.
+params.fasta = false
+params.gtf = false
+params.transcript = false
 
 params.outdir = "."
-params.genome = ""
+
 params.verbose = false
-params.single_end = false  // default mode is auto-detect. NOTE: params are handed over automatically  
 
 params.fastqc_args = ''
+params.fastp_args = ''
 params.fastq_screen_args = ''
 params.trim_galore_args = ''
+params.pbat = 15 // this number is added to --clip_r1 and --clip_r2 automatically. 
+// similar to adding this  params.trim_galore_args = ' --clip_r1 15 --clip_r2 15 ', but considers paired end/single end
+
+params.star_args = ''
+params.star_genome_args = ''
 params.hisat2_args = ''
 params.multiqc_args = ''
+params.args_kallisto = ''
 
 
 params.help = false
@@ -35,64 +50,59 @@ if (params.verbose){
     println ("[WORKFLOW] MULTIQC ARGS: "          + params.multiqc_args)
 }
 
-include { makeFilesChannel; getFileBaseNames } from './nf_modules/files.mod.nf'
-include { getGenome }    from './nf_modules/genomes.mod.nf'
-include { listGenomes }  from './nf_modules/genomes.mod.nf'
+include { PREPARE_GENOME_RNA }          from './nf_modules/genomes.mod.nf'
+include { INPUT_FILES }             from './nf_modules/files.mod.nf'
 
-if (params.list_genomes){
-    listGenomes()  // this lists all available genomes, and exits
-}
-genome = getGenome(params.genome)
 
 include { FASTQC }       from './nf_modules/fastqc.mod.nf'
+include { FASTP }       from './nf_modules/fastp.mod.nf'
 include { FASTQC as FASTQC2 } from './nf_modules/fastqc.mod.nf'
 include { FASTQ_SCREEN } from './nf_modules/fastq_screen.mod.nf'
 include { TRIM_GALORE }  from'./nf_modules/trim_galore.mod.nf'
-include { HISAT2 }       from './nf_modules/hisat2.mod.nf' params(genome: genome)
+// include { HISAT2 }       from './nf_modules/hisat2.mod.nf' params(genome: genome)
+// include { STAR_ALIGN }       from './nf_modules/star_rnaseq.nf'
+
+include { SALMON }       from './nf_modules/salmon.quant.nf'
+include { KALLISTO }       from './nf_modules/kallisto.quant.nf'
 
 include { MULTIQC }      from './nf_modules/multiqc.mod.nf' 
-file_ch = makeFilesChannel(args)
 
 workflow {
 
     main:
-        FASTQC         (file_ch, params.outdir, params.fastqc_args, params.verbose)
-        FASTQ_SCREEN   (file_ch, params.outdir, params.fastq_screen_args, params.verbose)
-        TRIM_GALORE    (file_ch, params.outdir, params.trim_galore_args, params.verbose)
-        FASTQC2        (TRIM_GALORE.out.reads, params.outdir, params.fastqc_args, params.verbose)
-        HISAT2         (TRIM_GALORE.out.reads, params.outdir, params.hisat2_args, params.verbose)
+
+        genome = PREPARE_GENOME_RNA ( params.fasta, params.gtf, params.transcript, "$params.outdir/genome_index" )
+
+        file_ch = INPUT_FILES       ( params.input ).file_ch
+
+        FASTQC                      (file_ch, "$params.outdir/fastqc", params.fastqc_args, params.verbose)
+        FASTP                       (file_ch, "$params.outdir/fastp", params.fastp_args, params.verbose)
+
+        TRIM_GALORE                 (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
+        FASTQC2                     (TRIM_GALORE.out.reads, "$params.outdir/fastqc_after_trim", params.fastqc_args, params.verbose)
+        FASTQ_SCREEN   (TRIM_GALORE.out.reads, "${params.outdir}/fastq_screen", params.fastq_screen_args, params.verbose)
+
+
+        // STAR_ALIGN                  (ch_input_files_to_map, "$params.outdir" )
+        // HISAT2         (TRIM_GALORE.out.reads, params.outdir, params.hisat2_args, params.verbose)
+
+        // SALMON_PREPARE              (genome.fasta, genome.transcript )
+        KALLISTO                (genome.fasta, genome.transcript, genome.gtf, TRIM_GALORE.out.reads, "$params.outdir/kallisto" )
 
         // merging channels for MultiQC
         multiqc_ch = FASTQC.out.report.mix(
             TRIM_GALORE.out.report,
+            FASTP.out.report,
             FASTQ_SCREEN.out.report.ifEmpty([]),
             FASTQC2.out.report.ifEmpty([]),
-            HISAT2.out.stats.ifEmpty([]),
+            // HISAT2.out.stats.ifEmpty([]),
         ).collect()
 
         // multiqc_ch.subscribe {  println "Got: $it"  }
 
-        MULTIQC                          (multiqc_ch, params.outdir, params.multiqc_args, params.verbose)
+        MULTIQC                          (multiqc_ch, "$params.outdir/multiqc", params.multiqc_args, params.verbose)
 }
 
-// Since workflows with very long command lines tend to fail to get rendered at all, I was experimenting with a
-// minimal execution summary report so we at least know what the working directory was...
-workflow.onComplete {
-
-    def msg = """\
-        Pipeline execution summary
-        ---------------------------
-        Jobname     : ${workflow.runName}
-        Completed at: ${workflow.complete}
-        Duration    : ${workflow.duration}
-        Success     : ${workflow.success}
-        workDir     : ${workflow.workDir}
-        exit status : ${workflow.exitStatus}
-        """
-    .stripIndent()
-
-    sendMail(to: "${workflow.userName}@babraham.ac.uk", subject: 'Minimal pipeline execution report', body: msg)
-}
 
 def helpMessage() {
  
