@@ -30,7 +30,7 @@ workflow {
     input_genomes = Channel
                         .fromPath( params.input )
                         .splitCsv()
-                        .map{ row -> [ row[1], row[2] ]} // here the file can have many columns but we filter them
+                        .map{ row -> [ row[0], row[1] ]} // here the file can have many columns but we filter them
 
     DOWNLOAD_GENOMES    (input_genomes, params.outdir, params.assembly, params.annotation)
 }
