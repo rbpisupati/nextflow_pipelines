@@ -5,8 +5,14 @@
 // Enable modules
 nextflow.enable.dsl=2
 
+params.input = ''
+params.fasta = ''
+params.file_ext = 'fastq'
+
+params.genome_id = 'SolTub_3.0'
+
+
 params.outdir = "."
-params.genome = ""
 params.verbose = false
 params.single_end = false  // default mode is auto-detect. NOTE: params are handed over automatically 
 
@@ -36,35 +42,34 @@ if (params.verbose){
     println ("[WORKFLOW] MULTIQC ARGS: "          + params.multiqc_args)
 }
 
-
-include { makeFilesChannel; getFileBaseNames } from './nf_modules/files.mod.nf'
-include { getGenome }                          from './nf_modules/genomes.mod.nf'
-include { listGenomes }                        from './nf_modules/genomes.mod.nf'
-
-if (params.list_genomes){
-    listGenomes()  // this lists all available genomes, and exits
-}
-genome = getGenome(params.genome)
+include { PREPARE_GENOME }          from './nf_modules/genomes.mod.nf'
+include { INPUT_FILES }             from './nf_modules/files.mod.nf'
 
 include { FASTQC }            from './nf_modules/fastqc.mod.nf'
 include { FASTQC as FASTQC2 } from './nf_modules/fastqc.mod.nf'
 include { FASTQ_SCREEN }      from './nf_modules/fastq_screen.mod.nf'
 include { TRIM_GALORE }       from './nf_modules/trim_galore.mod.nf'
 
-include { BOWTIE2 }           from './nf_modules/bowtie2.mod.nf'   params(genome: genome)
+include { BOWTIE2 }           from './nf_modules/bowtie2.mod.nf'  
 include { MULTIQC }           from './nf_modules/multiqc.mod.nf' 
-
-file_ch = makeFilesChannel(args)
 
 workflow {
 
     main:
-        FASTQC          (file_ch, params.outdir, params.fastqc_args, params.verbose)
-        FASTQ_SCREEN    (file_ch, params.outdir, params.fastq_screen_args, params.verbose)
-        TRIM_GALORE     (file_ch, params.outdir, params.trim_galore_args, params.verbose)
-        FASTQC2         (TRIM_GALORE.out.reads, params.outdir, params.fastqc_args, params.verbose)
-        BOWTIE2         (TRIM_GALORE.out.reads, params.outdir, params.bowtie2_args, params.verbose)
-     
+
+        genome = PREPARE_GENOME( params.fasta, "$params.outdir/genome_index", bismark = false, bowtie2 = true )
+
+        file_ch = INPUT_FILES       ( params.input ).file_ch
+
+
+        FASTQC          (file_ch, "$params.outdir/fastqc", params.fastqc_args, params.verbose)
+        FASTQ_SCREEN    (file_ch, "$params.outdir/fastq_screen", params.fastq_screen_args, params.verbose)
+
+        TRIM_GALORE     (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
+        FASTQC2         (TRIM_GALORE.out.reads, "$params.outdir/fastqc_after_trim", params.fastqc_args, params.verbose)
+
+        BOWTIE2         (genome.bowtie2, TRIM_GALORE.out.reads, "$params.outdir/bowtie2", params.bowtie2_args, params.verbose)
+
         // merging channels for MultiQC
         multiqc_ch = FASTQC.out.report.mix(
             TRIM_GALORE.out.report,
@@ -74,8 +79,7 @@ workflow {
         ).collect()
 
         // multiqc_ch.subscribe {  println "Got: $it"  }
-
-        MULTIQC                          (multiqc_ch, params.outdir, params.multiqc_args, params.verbose)
+        MULTIQC          (multiqc_ch, "$params.outdir/multiqc", params.multiqc_args, params.verbose)
 }
 
 // Since workflows with very long command lines tend to fail to get rendered at all, I was experimenting with a
@@ -93,8 +97,6 @@ workflow.onComplete {
         exit status : ${workflow.exitStatus}
         """
     .stripIndent()
-
-    sendMail(to: "${workflow.userName}@babraham.ac.uk", subject: 'Minimal pipeline execution report', body: msg)
 }
 
 def helpMessage() {

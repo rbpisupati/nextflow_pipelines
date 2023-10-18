@@ -4,6 +4,7 @@ nextflow.enable.dsl=2
 
 params.genome_id = false
 params.star_genome_args = ''
+params.bowtie2_build_args = ''
 
 
 workflow PREPARE_GENOME {
@@ -11,6 +12,8 @@ workflow PREPARE_GENOME {
     take:
     fasta_file
     outputDir
+    bismark
+    bowtie2
 
     main:
 
@@ -18,14 +21,25 @@ workflow PREPARE_GENOME {
         .fromPath( fasta_file )
         .map{ row -> [file(row).baseName, file(row).baseName, file(row)] }
 
-    // ch_fasta_dir = ch_fasta.parent
+    // Generate this index only if given
+    if( bowtie2 ){
+        bowtie2_index = BOWTIE2_BUILD ( ch_input_genome, outputDir)
+    } else {
+        bowtie2_index = false
+    }
 
-    prepare_genome = BISMARK_GENOMEPREPARATION ( ch_input_genome, outputDir )
+    // ch_fasta_dir = ch_fasta.parent
+    if( bismark ){
+        bismark_index = BISMARK_GENOMEPREPARATION ( ch_input_genome, outputDir )
+    } else {
+        bismark_index = false
+    }
 
     emit:
     fasta            = ch_input_genome            //    path: genome.fasta
     // chrom_sizes      = ch_chrom_sizes      //    path: genome.sizes
-    bismark          = prepare_genome.index
+    bismark          = bismark_index
+    bowtie2           = bowtie2_index
     // rsem_index       = ch_rsem_index       //    path: rsem/index/
     // hisat2_index     = ch_hisat2_index     //    path: hisat2/index/
     // salmon_index     = ch_salmon_index     //    path: salmon/index/
@@ -62,7 +76,30 @@ workflow PREPARE_GENOME_RNA {
 
 }
 
+process BOWTIE2_BUILD {
+    tag "$name"
+    label 'process_medium'
 
+    storeDir "${outdir}"
+    
+    conda "bioconda::bowtie2=2.4.4"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bowtie2:2.4.4--py39hbb4e92a_0' :
+        'biocontainers/bowtie2:2.4.4--py39hbb4e92a_0' }"
+
+    input:
+    tuple val(name), val(genome_id), path(fasta, stageAs: "bowtie2/*")
+    val(outdir)
+
+    output:
+    tuple val(name), path("$genome_id")
+
+    script:
+    """
+    bowtie2-build $params.bowtie2_build_args --threads $task.cpus $fasta bowtie2/${genome_id}
+    mv bowtie2 $genome_id
+    """
+}
 
 // name	ARS-UCD1.2
 // species	Bos_taurus

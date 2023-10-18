@@ -14,6 +14,7 @@ process BOWTIE2 {
 	label 'multiCore'
 		
     input:
+		tuple val(genome_id), path(index)
 	    tuple val(name), path(reads)
 		val (outputdir)
 		val (bowtie2_args)
@@ -52,13 +53,10 @@ process BOWTIE2 {
 		}
 
 
-		index = params.genome["bowtie2"]
-		bowtie_name = name + "_" + params.genome["name"]
+		bowtie_name = name + "_" + genome_id
 
 		"""
-		module load bowtie2
-		module load samtools
-		bowtie2 -x ${index} -p ${cores} ${bowtie_options} ${readString}  2>${bowtie_name}_bowtie2_stats.txt | samtools view -bS -F 4 -F 8 -F 256 -> ${bowtie_name}_bowtie2.bam
+		bowtie2 -x ${index}/${index} -p ${cores} ${bowtie_options} ${readString}  2>${bowtie_name}_bowtie2_stats.txt | samtools view -bS -F 4 -F 8 -F 256 -> ${bowtie_name}_bowtie2.bam
 		"""
 
 }
