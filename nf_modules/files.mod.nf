@@ -9,7 +9,14 @@ workflow INPUT_FILES {
 
     main:
     if (params.file_ext == "fastq"){
-        file_ch = Channel.fromFilePairs( fileList )
+        if (params.single_end){
+            file_ch = Channel
+                        .fromPath( fileList )
+                        .map{ row ->  [ file(row).baseName.replace(".fastq", "").replace(".fq", ""), file(row, checkIfExists: true) ]  }
+
+        } else {
+            file_ch = Channel.fromFilePairs( fileList )
+        }
     } else if (params.file_ext == "bam"){
         ch_input_bams = Channel
                             .fromPath( fileList )

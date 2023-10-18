@@ -68,7 +68,7 @@ workflow {
         TRIM_GALORE     (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
         FASTQC2         (TRIM_GALORE.out.reads, "$params.outdir/fastqc_after_trim", params.fastqc_args, params.verbose)
 
-        BOWTIE2         (genome.bowtie2, TRIM_GALORE.out.reads, "$params.outdir/bowtie2", params.bowtie2_args, params.verbose)
+        BOWTIE2         (genome.bowtie2.collect(), TRIM_GALORE.out.reads, "$params.outdir/bowtie2", params.bowtie2_args, params.verbose)
 
         // merging channels for MultiQC
         multiqc_ch = FASTQC.out.report.mix(
