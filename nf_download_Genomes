@@ -1,0 +1,36 @@
+#!/usr/bin/env nextflow
+
+// Last modified 13 October 2020
+
+// Enable modules
+nextflow.enable.dsl=2
+
+params.input = ''
+params.outdir = './'
+
+params.assembly = 'FALSE'
+params.annotation = 'TRUE'
+
+
+params.verbose = false
+
+params.help = false
+// Show help message and exit
+if (params.help){
+    helpMessage()
+    exit 0
+}
+
+include { DOWNLOAD_GENOMES }          from './nf_modules/genomes.mod.nf'
+
+
+workflow {
+
+    main:
+    input_genomes = Channel
+                        .fromPath( params.input )
+                        .splitCsv()
+                        .map{ row -> [ row[1], row[2] ]} // here the file can have many columns but we filter them
+
+    DOWNLOAD_GENOMES    (input_genomes, params.outdir, params.assembly, params.annotation)
+}

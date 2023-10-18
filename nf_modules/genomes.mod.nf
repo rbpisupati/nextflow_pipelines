@@ -141,6 +141,64 @@ process BISMARK_GENOMEPREPARATION {
     // echo \$(bismark -v 2>&1) | sed 's/^.*Bismark Version: v//; s/Copyright.*\$//' > ${software}.version.txt
 }
 
+process DOWNLOAD_GENOMES{
+    tag "$common_name"
+    label 'process_medium'
+
+
+    publishDir "${outdir}", mode: 'move'
+        // saveAs: { filename -> saveFiles(filename:filename, options:params.options, publish_dir:getSoftwareName(task.process), publish_id:'') }
+
+    conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)
+    if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+        container "https://depot.galaxyproject.org/singularity/r-biomartr:1.0.4--r42h3342da4_0"
+    } else {
+        container "quay.io/biocontainers/r-biomartr:1.0.4--r42h3342da4_0"
+    }
+
+    input:
+    tuple val(common_name), val(species_name)
+    val(outdir)
+    val(assembly)
+    val(annotation)
+
+    output:
+    tuple val(common_name), path("$common_name"), emit: genome
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+    library(biomartr)
+
+    if($assembly){
+        genome.refseq <- getGenome(
+                        db = "refseq", 
+                        organism = "$species_name", 
+                        path = file.path("$common_name", 'assembly')
+                    )
+
+        file.rename(genome.refseq, file.path("$common_name", 'assembly','genome.fa.gz'))
+    }
+    
+    if ($annotation){
+        cds.refseq = getCDS(
+                        db = "refseq", 
+                        organism = "$species_name",
+                        path = file.path("$common_name", 'cds')
+        )
+        file.rename(cds.refseq, file.path("$common_name",'cds','cds.fa.gz'))
+
+        gff.refseq = getGFF(
+                        organism = "$species_name",
+                        path = file.path("$common_name", 'annotation'),
+                        remove_annotation_outliers = TRUE
+                    )
+
+        file.rename(gff.refseq, file.path("$common_name", 'annotation','gff.gz'))
+    }
+    """
+}
+
 def getGenome(name) {
 
     // Find a file with the same name as the genome in our genomes.d directory
