@@ -127,12 +127,13 @@ workflow INPUT_SAMPLESHEET {
 process mergeInputFastq {
     tag { "${sample_id}" }
 
-    publishDir "$params.outdir", mode: 'copy'
+    publishDir "$outputDir", mode: 'copy'
     // storeDir "$params.outdir"
     errorStrategy 'ignore'
 
     input:
     tuple val(sample_id), path(read_1), path(read_2)
+    val(outputDir)
 
     output:
     tuple val(sample_id), path("${sample_id}*_1.fq.gz"), path("${sample_id}*_2.fq.gz")
