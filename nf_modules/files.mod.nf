@@ -109,7 +109,7 @@ workflow INPUT_SAMPLESHEET {
 
     
     // need to merge files with same sample ID
-    ch_input_files_merged = mergeInputFastq( ch_input_files.filter{ it[1].size() > 1 } )
+    ch_input_files_merged = mergeInputFastq( ch_input_files.filter{ it[1].size() > 1 }, outputDir )
 
     ch_input_files_final = ch_input_files_merged.concat( ch_input_files.filter{ it[1].size() == 1 }.map{ it -> [it[0], it[1][0], it[2][0] ] } )
         .map{ it -> [ it[0], [it[1], it[2]] ] }
