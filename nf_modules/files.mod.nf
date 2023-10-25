@@ -128,7 +128,7 @@ process mergeInputFastq {
     tag { "${sample_id}" }
 
     publishDir "$outputDir", mode: 'copy'
-    // storeDir "$params.outdir"
+    // storeDir "$outputDir"
     errorStrategy 'ignore'
 
     input:
