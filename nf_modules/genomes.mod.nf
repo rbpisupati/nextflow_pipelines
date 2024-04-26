@@ -14,6 +14,7 @@ workflow PREPARE_GENOME {
     outputDir
     bismark
     bowtie2
+    bwa
 
     main:
 
@@ -35,11 +36,18 @@ workflow PREPARE_GENOME {
         bismark_index = false
     }
 
+    if ( bwa ){
+        bwa_index = BWA_GENOMEINDEX ( ch_input_genome, outputDir )
+    } else {
+        bwa_index = false
+    }
+
     emit:
     fasta            = ch_input_genome            //    path: genome.fasta
     // chrom_sizes      = ch_chrom_sizes      //    path: genome.sizes
     bismark          = bismark_index
-    bowtie2           = bowtie2_index
+    bowtie2          = bowtie2_index
+    bwa              = bwa_index
     // rsem_index       = ch_rsem_index       //    path: rsem/index/
     // hisat2_index     = ch_hisat2_index     //    path: hisat2/index/
     // salmon_index     = ch_salmon_index     //    path: salmon/index/
@@ -75,6 +83,32 @@ workflow PREPARE_GENOME_RNA {
     // salmon_index     = ch_salmon_index     //    path: salmon/index/
 
 }
+
+process BWA_GENOMEINDEX {
+    tag "$name"
+    label 'process_medium'
+
+    storeDir "${outdir}"
+    
+    conda (params.enable_conda ? 'bioconda::bwa=0.7.18' : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/bwa%3A0.7.8--hed695b0_5' :
+        'quay.io/biocontainers/bwa:0.7.17--he4a0461_11' }"
+
+    input:
+    tuple val(name), val(genome_id), path(fasta, stageAs: "bwa/genome.fa")
+    val(outdir)
+
+    output:
+    tuple val(name), path("$genome_id")
+
+    script:
+    """
+    bwa index bwa/genome.fa
+    mv bwa $genome_id
+    """
+}
+
 
 process BOWTIE2_BUILD {
     tag "$name"
@@ -144,9 +178,10 @@ process BISMARK_GENOMEPREPARATION {
 process DOWNLOAD_GENOMES{
     tag "$common_name"
     label 'process_medium'
+    errorStrategy 'ignore'
 
-
-    publishDir "${outdir}", mode: 'move'
+    storeDir "${outdir}"
+    // publishDir "${outdir}", mode: 'move'
         // saveAs: { filename -> saveFiles(filename:filename, options:params.options, publish_dir:getSoftwareName(task.process), publish_id:'') }
 
     conda (params.enable_conda ? "bioconda::bismark=0.23.0" : null)

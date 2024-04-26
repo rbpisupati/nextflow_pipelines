@@ -1,7 +1,7 @@
 nextflow.enable.dsl=2
 params.save_intermediate = false
 
-process SAMTOOLS_IDXSTAT{	
+process SAMTOOLS_STATS{	
     
 	tag "$name" // Adds name to job submission instead of (1), (2) etc.
 	label 'bigMem' // 20GB
@@ -32,5 +32,7 @@ process SAMTOOLS_IDXSTAT{
 		}
 		"""
 		samtools idxstat $bam > ${name}_idxstat.txt
+		samtools flagstat ${bam} > ${name}_flagstat_report.txt
+		samtools stats ${bam} > ${name}_stats_report.txt
     	"""
 }
