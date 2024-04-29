@@ -1,4 +1,4 @@
-# Babraham Nextflow Pipelines
+# Nextflow Pipelines
 
 ## Introduction
 
@@ -47,4 +47,4 @@ If you install these pipelines on your own system then you will need to prepare 
 More detailed information please refer to the more detailed [Nextflow @Babraham User Guide](./Docs/Nextflow_at_Babraham.md).
 
 # Problems and bugs
-If you have any problems using these pipelines then feel free to file issues in our [Github repository](https://github.com/s-andrews/nextflow_pipelines/issues).  For other questions you can email [babraham.bioinformatics@babraham.ac.uk](mailto://babraham.bioinformatics@babraham.ac.uk)
+If you have any problems using these pipelines then feel free to file issues in our [Github repository](https://github.com/rbpisupati/nextflow_pipelines/issues).
