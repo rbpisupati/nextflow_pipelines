@@ -1,6 +1,32 @@
 nextflow.enable.dsl=2
 params.samtools_sort_args = [:]
 
+
+process SAMTOOLS_INDEX {
+	tag "$name"
+	label 'process_medium'
+
+	publishDir "$outputdir", mode: "copy", overwrite: true
+
+	conda (params.enable_conda ? "bioconda::samtools=1.14" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/samtools:1.14--hb421002_0' :
+        'quay.io/biocontainers/samtools:1.14--hb421002_0' }"
+
+
+	input:
+		tuple val(name), path(bam)
+		val(outputdir)
+	
+	output:
+		tuple val(name), path("*bam"), path("*bam.bai"), 	emit: bam
+
+	script:
+	"""
+	samtools index $bam
+	"""
+}
+
 process SAMTOOLS_VIEW {
 	tag "$name"
 	label 'bigMem'
