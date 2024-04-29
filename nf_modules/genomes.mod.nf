@@ -90,10 +90,12 @@ process BWA_GENOMEINDEX {
 
     storeDir "${outdir}"
     
-    conda (params.enable_conda ? 'bioconda::bwa=0.7.18' : null)
+    conda (params.enable_conda ? 'bioconda::bwa=0.7.18 bioconda::samtools' : null)
+    // here I use mulled containers to include both bwa and samtools
+    //  mulled-search --destination quay singularity -s bwa samtools
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/bwa%3A0.7.8--hed695b0_5' :
-        'quay.io/biocontainers/bwa:0.7.17--he4a0461_11' }"
+        'https://depot.galaxyproject.org/singularity/mulled-v2-fe8faa35dbf6dc65a0f7f5d4ea12e31a79f73e40:219b6c272b25e7e642ae3ff0bf0c5c81a5135ab4-0' :
+        'quay.io/biocontainers/mulled-v2-fe8faa35dbf6dc65a0f7f5d4ea12e31a79f73e40:219b6c272b25e7e642ae3ff0bf0c5c81a5135ab4-0' }"
 
     input:
     tuple val(name), val(genome_id), path(fasta, stageAs: "bwa/genome.fa")
@@ -105,6 +107,7 @@ process BWA_GENOMEINDEX {
     script:
     """
     bwa index bwa/genome.fa
+    samtools faidx bwa/genome.fa
     mv bwa $genome_id
     """
 }
