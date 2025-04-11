@@ -1,0 +1,119 @@
+#!/usr/bin/env nextflow
+nextflow.enable.dsl=2
+
+// last modified 19 march 2025
+
+params.input = "data/*fastq.gz"
+params.outdir = "."
+params.file_ext = "fastq"
+
+params.save_intermediate = true
+
+// arguments for the tools
+params.trim_galore_args = ''
+params.fastqc_args = ''
+
+params.canu_args = ' genomeSize=1m -nanopore-raw '
+params.prokka_args = ''
+params.str_detect_args = ' --max-tr-len 100000  --min-mapq 10 --min-reads 1 '
+
+params.multiqc_args = ''
+
+params.verbose = false
+
+params.help = false
+// Show help message and exit
+if (params.help){
+    helpMessage()
+    exit 0
+}
+
+include { INPUT_FILES }         from './nf_modules/files.mod.nf'
+include { PREPARE_GENOME }     from './nf_modules/genomes.mod.nf'
+include { BWA_MEM }             from './nf_modules/bwa.nf'
+
+include { FASTQC }              from './nf_modules/fastqc.mod.nf'
+include { TRIM_GALORE }         from './nf_modules/trim_galore.mod.nf'
+// include { FASTP }            from './nf_modules/fastp.mod.nf'
+// include { FASTQ_SCREEN }     from './nf_modules/fastq_screen.mod.nf'
+include { MULTIQC }             from './nf_modules/multiqc.mod.nf'
+
+include { SAMTOOLS_VIEW; SAMTOOLS_SORT; SAMTOOLS_INDEX }           from './nf_modules/samtools.sort.nf' 
+// include { SAMTOOLS_STATS }      from './nf_modules/samtools.idxstat.nf'
+include {PICARD_ADDINFO}        from './nf_modules/picard.nf'
+
+include { CANU }               from './nf_modules/longread_assembly.nf'
+// include { DRAGONFLYE }         from './nf_modules/longread_assembly.nf'
+// include { PROKKA }             from './nf_modules/longread_annotation.nf'
+include {LongTR_Detect}         from './nf_modules/longread_str_detection.nf'
+
+
+workflow {
+
+    main:
+
+        // pipeline for long read alignment
+        // file_ch = Channel.fromPath( params.input ).map{ file -> [file.baseName, file] }
+        // Prokka annotation
+        // PROKKA                      (file_ch, "${params.outdir}/prokka")
+        //------------------------------
+
+        //------------------------------
+        // // BWA alignment for long reads
+        // genome = PREPARE_GENOME ( params.fasta, "$params.outdir/genome_index", false, false, true )
+        // file_ch = INPUT_FILES       ( params.input ).file_ch
+        // TRIM_GALORE                 (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
+
+        // BWA_MEM                     (genome.bwa.collect(), TRIM_GALORE.out.reads, "${params.outdir}/bwa", '', params.verbose)
+        // SAMTOOLS_VIEW               (BWA_MEM.out.sam, "${params.outdir}/bwa")
+        // SAMTOOLS_SORT               (SAMTOOLS_VIEW.out.bam, "${params.outdir}/bwa")
+        //------------------------------
+
+        //------------------------------
+        // ONT Assembly
+        file_ch = Channel.fromPath( params.input ).map{ file -> [file.baseName, file] }
+        CANU                       (file_ch, "${params.outdir}/canu_assembly", params.canu_args)
+
+
+        // Pipeline for determining long tandem repeats
+        // genome = Channel.fromPath( params.fasta ).map{ it -> [it.baseName, file(it), file("${it}.fai") ] }
+        // file_ch = Channel.fromPath( params.input ).map{ it -> [it.baseName, file(it) ] }
+        // file_tr_regions = Channel.fromPath( params.tr_regions )
+        // PICARD_ADDINFO        (file_ch, "${params.outdir}/picard")
+        // SAMTOOLS_INDEX       (PICARD_ADDINFO.out.mkdup_bam, "${params.outdir}/picard")
+        // LongTR_Detect            (genome.collect(), SAMTOOLS_INDEX.out.bam, file_tr_regions.collect(), "${params.outdir}/longtr", params.str_detect_args)
+
+
+
+        // // FASTQC for raw reads
+        // FASTQC                      (file_ch, "$params.outdir/fastqc", params.fastqc_args, params.verbose)
+        // // FASTP                       (file_ch, "$params.outdir/fastp", params.fastp_args, params.verbose)
+
+        // // trimming the reads
+        // TRIM_GALORE                 (file_ch, "${params.outdir}/trim_galore", params.trim_galore_args, params.verbose)
+        // FASTQC2                     (TRIM_GALORE.out.reads, "$params.outdir/fastqc_after_trim", params.fastqc_args, params.verbose)
+
+        // // FASTQ_SCREEN                (TRIM_GALORE.out.reads, "${params.outdir}/fastq_screen", params.fastq_screen_args, params.verbose)
+
+        // // aligning reads
+        // // BOWTIE2                     (genome.bowtie2.collect(), TRIM_GALORE.out.reads, "$params.outdir/bowtie2", params.bowtie2_args, params.verbose)
+        // BWA_MEM                     (genome.bwa.collect(), TRIM_GALORE.out.reads, "${params.outdir}/bwa", params.bwa_args, params.verbose)
+
+        // // sorting and indexing the BAM file
+        // SAMTOOLS_VIEW               (BWA_MEM.out.sam, "${params.outdir}/bwa")
+        // SAMTOOLS_SORT               (SAMTOOLS_VIEW.out.bam, "${params.outdir}/bwa")
+        // SAMTOOLS_STATS              (SAMTOOLS_SORT.out.bam, "${params.outdir}/bam_stat", params.verbose)
+
+        // // merging channels for MultiQC
+        // multiqc_ch = FASTQC.out.report.mix(
+        //     TRIM_GALORE.out.report,
+        //     // FASTP.out.report,
+        //     // FASTQ_SCREEN.out.report.ifEmpty([]),
+        //     FASTQC2.out.report.ifEmpty([]),
+        //     // BOWTIE2.out.stats.ifEmpty([])
+        //     // SAMTOOLS_STATS.out.report
+        // ).collect()
+        // MULTIQC          (multiqc_ch, "$params.outdir/multiqc", params.multiqc_args, params.verbose)
+
+}
+
