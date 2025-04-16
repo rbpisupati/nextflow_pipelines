@@ -1,18 +1,50 @@
 nextflow.enable.dsl=2
 
+// Process to remove duplicate IDs in the fastq files
+process SEQKIT_RMDUP {
+    tag "$sample_name"
+    label 'process_medium'
+
+    conda "bioconda::seqkit=0.7.1"
+    container 'https://depot.galaxyproject.org/singularity/seqkit:0.7.1--0'
+
+    publishDir "${outdir}/${sample_name}", mode: 'copy'
+
+    input:
+    tuple val(sample_name), path(reads)
+    val outdir
+
+    output:
+    tuple val(sample_name), path("*.fastq.gz"), emit: reads
+    tuple val(sample_name), path("*.log")     , emit: log
+
+    when:
+    task.ext.when == null || task.ext.when
+    script:
+    def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${sample_name}"
+    """
+    zcat $reads | seqkit rmdup  -i -o ${sample_name}.rmdup.fastq.gz -d ${sample_name}.duplicated.fastq.gz -D duplicated.detail.txt
+    """
+
+}
 
 // Process to trim adapters from long reads using Porechop
-process PORECHOP_PORECHOP {
+process PORECHOP {
     tag "$sample_name"
     label 'process_medium'
 
     conda "bioconda::porechop=0.2.4"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/porechop:0.2.4--py39h7cff6ad_2' :
-        'biocontainers/porechop:0.2.4--py39h7cff6ad_2' }"
+    container 'https://depot.galaxyproject.org/singularity/porechop:0.2.4--py39h7cff6ad_2'
+    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    //     'https://depot.galaxyproject.org/singularity/porechop:0.2.4--py39h7cff6ad_2' :
+    //     'biocontainers/porechop:0.2.4--py39h7cff6ad_2' }"
+
+    publishDir "${outdir}/${sample_name}", mode: 'copy'
 
     input:
     tuple val(sample_name), path(reads)
+    val outdir
 
     output:
     tuple val(sample_name), path("*.fastq.gz"), emit: reads

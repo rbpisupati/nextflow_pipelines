@@ -1,5 +1,35 @@
 nextflow.enable.dsl=2
 
+// circlator to fixstart circular genomes based on dnaA gene
+process CIRCLATOR_FIXSTART {
+    tag "$assembly_name"
+    label 'process_medium'
+
+    conda "bioconda::circlator=1.5.2"
+    container "https://depot.galaxyproject.org/singularity/circlator:1.5.2--py35_0"
+    //  "quay.io/biocontainers/circlator:1.5.2--py35_1"
+
+    publishDir "${outdir}/${assembly_name}", mode: 'copy'
+
+    input:
+    tuple val(assembly_name), path(fasta)
+    path(dnaa_fasta)
+    val outdir
+
+    output:
+    tuple val(assembly_name), path("${assembly_name}/*.fa"), emit: contigs
+
+    script:
+    def args = task.ext.args ?: ''
+    """
+    circlator fixstart ${fasta} ${assembly_name}.fixstart \\
+        $args \\
+        --genes_fa $dnaa_fasta \\
+        
+    """
+}
+
+
 // Process to annotate long reads using Prokka
 // Mainly used for bacterial genomes and prokaryotic genomes
 process PROKKA {

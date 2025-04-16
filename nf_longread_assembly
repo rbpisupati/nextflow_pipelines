@@ -14,6 +14,8 @@ params.trim_galore_args = ''
 params.fastqc_args = ''
 
 params.canu_args = ' genomeSize=1m -nanopore-raw '
+params.dragonflye_args = '  '
+params.flye_args = ' --genome-size 3.4m '
 params.prokka_args = ''
 params.str_detect_args = ' --max-tr-len 100000  --min-mapq 10 --min-reads 1 '
 
@@ -37,13 +39,15 @@ include { TRIM_GALORE }         from './nf_modules/trim_galore.mod.nf'
 // include { FASTP }            from './nf_modules/fastp.mod.nf'
 // include { FASTQ_SCREEN }     from './nf_modules/fastq_screen.mod.nf'
 include { MULTIQC }             from './nf_modules/multiqc.mod.nf'
+include {PORECHOP}     from './nf_modules/longread_qc.nf'
 
 include { SAMTOOLS_VIEW; SAMTOOLS_SORT; SAMTOOLS_INDEX }           from './nf_modules/samtools.sort.nf' 
 // include { SAMTOOLS_STATS }      from './nf_modules/samtools.idxstat.nf'
 include {PICARD_ADDINFO}        from './nf_modules/picard.nf'
 
 include { CANU }               from './nf_modules/longread_assembly.nf'
-// include { DRAGONFLYE }         from './nf_modules/longread_assembly.nf'
+include { DRAGONFLYE }         from './nf_modules/longread_assembly.nf'
+include { FLYE }               from './nf_modules/longread_assembly.nf'
 // include { PROKKA }             from './nf_modules/longread_annotation.nf'
 include {LongTR_Detect}         from './nf_modules/longread_str_detection.nf'
 
@@ -71,8 +75,13 @@ workflow {
 
         //------------------------------
         // ONT Assembly
-        file_ch = Channel.fromPath( params.input ).map{ file -> [file.baseName, file] }
-        CANU                       (file_ch, "${params.outdir}/canu_assembly", params.canu_args)
+        ch_longreads = Channel.fromPath( params.input ).map{ file -> [file.baseName, file] }
+        // ch_shortreads = INPUT_FILES       ( params.shortreads ).file_ch
+
+        PORECHOP                    (ch_longreads, "${params.outdir}/porechop")
+
+        // CANU                       (ch_longreads, "${params.outdir}/canu_assembly", params.canu_args)
+        FLYE                    (PORECHOP.out.reads, "${params.outdir}/flye", params.flye_args)
 
 
         // Pipeline for determining long tandem repeats
