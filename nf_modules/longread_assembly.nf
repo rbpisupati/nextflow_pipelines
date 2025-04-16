@@ -144,51 +144,6 @@ process DRAGONFLYE {
 }
 
 
-// 3. Circlator
-// Tool for assembling circular genomes using long reads
-// Sanger Labs
-// Run Circlator
-process CIRCLATOR {
-    tag "${sample_name}"
-    label 'process_high'
-
-    conda "bioconda::circlator=1.5.2--py35_1"
-    container "quay.io/biocontainers/circlator:1.5.2--py35_1"
-
-    publishDir "${params.outdir}/assembly_circlator/${sample_name}", mode: 'copy'
-
-    input:
-    tuple val(sample_name), path(shortreads), path(longreads)
-
-    output:
-    tuple val(sample_name), path("*.fa")                                               , emit: contigs
-
-    script:
-    def args    = task.ext.args ?: ''
-
-    // memory
-    args = args + " --ram $task.memory.toGiga() "
-    //cpus
-    args = args + " --threads $task.cpus "
-    // --merge_min_id ${params.merge_min_id} \
-    //     --merge_breaklen ${params.merge_breaklen} \
-    //     --b2r_length_cutoff ${params.b2r_length_cutoff} \
-    //     --merge_min_length_merge ${params.merge_min_length_merge} \
-    //     --merge_reassemble_end ${params.merge_reassemble_end} \
-    //     --merge_ref_end ${params.merge_ref_end} \
-    """
-    circlator all \
-        $args \
-        ${fasta} \
-        $longreads \
-        ${sample_name}
-
-    """
-
-}
-
-
-
 // 6. Miniasm
 // 7. Miniasm2
 // 8. Wtdbg2: Redbean: A fuzzy Bruijn graph approach to long noisy reads assembly
