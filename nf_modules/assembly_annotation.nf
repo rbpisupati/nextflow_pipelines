@@ -17,7 +17,8 @@ process CIRCLATOR_FIXSTART {
     val outdir
 
     output:
-    tuple val(assembly_name), path("${assembly_name}/*.fa"), emit: contigs
+    tuple val(assembly_name), path("${assembly_name}.fixstart.fasta")   , emit: assembly
+    tuple val(assembly_name), path("${assembly_name}.fixstart*log")     , emit: log
 
     script:
     def args = task.ext.args ?: ''
@@ -34,14 +35,14 @@ process CIRCLATOR_FIXSTART {
 // Mainly used for bacterial genomes and prokaryotic genomes
 process PROKKA {
     tag "$assembly_name"
-    label 'process_low'
+    label 'process_medium'
 
     conda "bioconda::prokka=1.14.6"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/prokka:1.14.6--pl5321hdfd78af_4' :
         'biocontainers/prokka:1.14.6--pl5321hdfd78af_4' }"
 
-    publishDir "${outdir}/${assembly_name}", mode: 'copy'
+    publishDir "${outdir}", mode: 'copy'
 
     input:
     tuple val(assembly_name), path(fasta)

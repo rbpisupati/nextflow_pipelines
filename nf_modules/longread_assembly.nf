@@ -14,7 +14,7 @@ process CANU {
     //     'biocontainers/canu:2.2--ha47f30e_0' }"
 
 
-    publishDir "${outdir}/${sample_name}", mode: 'copy'
+    publishDir "${outdir}", mode: 'copy'
     
     input:
     tuple val(sample_name), path(reads)
@@ -69,11 +69,11 @@ process FLYE {
     val args
 
     output:
-    tuple val(sample_name), path("*.fasta")                                               , emit: contigs
-    tuple val(sample_name), path("flye.log")                                     , emit: log
-    tuple val(sample_name), path("assembly_graph*")                         , emit: graph
-    tuple val(sample_name), path("30-contigger"), optional:true , emit: contig
-    tuple val(sample_name), path("assembly_info.txt")                      , optional:true , emit: info
+    tuple val(sample_name), path( "assembly.fasta" )                    , emit: assembly
+    tuple val(sample_name), path("flye.log")                            , emit: log
+    tuple val(sample_name), path("assembly_graph*")                     , emit: graph
+    // tuple val(sample_name), path("30-contigger"), optional:true         , emit: contigs
+    tuple val(sample_name), path("assembly_info.txt"), optional:true    , emit: info
 
     script:
     // def args    = task.ext.args ?: ''
