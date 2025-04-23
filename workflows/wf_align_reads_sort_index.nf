@@ -38,7 +38,7 @@ workflow BWA_ALIGN_SORT_INDEX {
     
     // multiqc
     multiqc_ch = SAMTOOLS_STATS.out.stats.mix(
-            PICARD_COLLECTMULTIPLEMETRICS.out.metrics
+            PICARD_COLLECTMULTIPLEMETRICS.out.report.ifEmpty([])
         ).collect()
     MULTIQC                 (multiqc_ch, "multiqc_aligned", "${val_outdir}/multiqc", ' ', val_verbose)
 

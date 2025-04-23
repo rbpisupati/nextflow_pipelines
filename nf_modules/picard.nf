@@ -19,6 +19,7 @@ process PICARD_COLLECTMULTIPLEMETRICS {
     output:
     tuple val(name), path("*_metrics"),     emit: metrics
     tuple val(name), path("*pdf"),          emit: pdf, optional: true
+    path("*_metrics"),                      emit: report
 
     script:
     avail_mem = (task.memory.mega*0.8).intValue()
@@ -26,10 +27,9 @@ process PICARD_COLLECTMULTIPLEMETRICS {
     picard \\
         -Xmx${avail_mem}M \\
         CollectMultipleMetrics \\
-        --REFERENCE_SEQUENCE ${fasta} \\
+        --REFERENCE_SEQUENCE ${ref_fasta} \\
         --INPUT $bam \\
         --OUTPUT ${name}.CollectMultipleMetrics \\
-        $reference
 
     """
 }
