@@ -26,6 +26,12 @@ process BWA_MEM {
     // we do not need to save sam files
 	//  publishDir "$outputdir",
 	// 	mode: "copy", overwrite: true
+	publishDir "$outputdir",
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
 
 	script:
 		if (verbose){

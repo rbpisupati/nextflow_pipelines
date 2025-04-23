@@ -1,5 +1,38 @@
 nextflow.enable.dsl=2
 
+process PICARD_COLLECTMULTIPLEMETRICS {
+    tag "$name"
+    label 'process_medium'
+
+    conda (params.enable_conda ? 'bioconda::picard=2.25.7' : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/picard:2.25.7--hdfd78af_0' :
+        'quay.io/biocontainers/picard:2.25.7--hdfd78af_0' }"
+
+    publishDir "${outputdir}/${name}", mode: 'copy'
+
+    input:
+    tuple val(name), path(bam), path(bam_idx)
+    tuple val(id), val(genome_id), path(ref_fasta)
+    val(outputdir)
+
+    output:
+    tuple val(name), path("*_metrics"),     emit: metrics
+    tuple val(name), path("*pdf"),          emit: pdf, optional: true
+
+    script:
+    avail_mem = (task.memory.mega*0.8).intValue()
+    """
+    picard \\
+        -Xmx${avail_mem}M \\
+        CollectMultipleMetrics \\
+        --REFERENCE_SEQUENCE ${fasta} \\
+        --INPUT $bam \\
+        --OUTPUT ${name}.CollectMultipleMetrics \\
+        $reference
+
+    """
+}
 
 process PICARD_DEDUP {
     tag "$name"
@@ -9,11 +42,16 @@ process PICARD_DEDUP {
         'https://depot.galaxyproject.org/singularity/picard:2.25.7--hdfd78af_0' :
         'quay.io/biocontainers/picard:2.25.7--hdfd78af_0' }"
 
-    // publishDir "${outdir}", mode: 'copy'
+    publishDir "$outputdir",
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
     
     input:
     tuple val(name), path(bam), path(bam_idx)
-    // val(outdir)
+    val(outputdir)
 
     output:
     tuple val(name), path("${name}.dedup.bam"), emit: dedup_bam
@@ -35,11 +73,16 @@ process PICARD_ADDINFO {
         'https://depot.galaxyproject.org/singularity/picard:2.25.7--hdfd78af_0' :
         'quay.io/biocontainers/picard:2.25.7--hdfd78af_0' }"
     
-    publishDir "${outdir}", mode: 'copy'
+    publishDir "$outputdir",
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
     
     input:
     tuple val(name), path(bam)
-    val(outdir)
+    val(outputdir)
 
     output:
     tuple val(name), path("${name}.mkdup.bam"), emit: mkdup_bam

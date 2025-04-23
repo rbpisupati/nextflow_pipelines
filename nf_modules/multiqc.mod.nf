@@ -2,7 +2,8 @@ nextflow.enable.dsl=2
 
 process MULTIQC {
 	
-	label 'quadCore'
+	label 'label_medium'
+
 	conda (params.enable_conda ? 'bioconda::multiqc=1.11' : null)
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0' :
@@ -14,6 +15,7 @@ process MULTIQC {
 
     input:
 	    path (file)
+		val ( prefix )
 		val (outputdir)
 		val (multiqc_args)
 		val (verbose)
@@ -23,7 +25,8 @@ process MULTIQC {
 		// path "*stats.txt", emit: stats 
 
 	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+		mode: "copy", overwrite: true,
+		saveAs: {filename -> "$prefix_${filename}" }
 
     script:
 		
