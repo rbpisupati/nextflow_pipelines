@@ -20,6 +20,7 @@ workflow PREPARE_GENOME {
 
     ch_input_genome = Channel
         .fromPath( fasta_file )
+        .ifEmpty { exit 1, "Provide a valid reference fasta."}
         .map{ row -> [file(row).baseName, file(row).baseName, file(row)] }
 
     // Generate this index only if given
