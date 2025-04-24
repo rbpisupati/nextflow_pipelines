@@ -1,0 +1,88 @@
+#!/usr/bin/env nextflow
+nextflow.enable.dsl=2
+
+// last modified 12 Oct 2020
+
+params.input = "data/*fastq.gz"
+params.outdir = "."
+params.fasta = ""
+params.file_ext = "fastq"
+
+params.save_intermediate = false
+
+// arguments for the tools
+params.trim_galore_args = ' --clip_r1 10 --clip_r2 10 '
+params.fastqc_args = ''
+params.bowtie2_args = ''
+params.bwa_args = ''
+params.multiqc_args = ''
+params.samtools_sort_args = ''
+
+params.verbose = false
+params.single_end = false  // default mode is auto-detect. NOTE: params are handed over automatically 
+
+params.list_genomes = false;
+
+params.help = false
+// Show help message and exit
+if (params.help){
+    helpMessage()
+    exit 0
+}
+
+
+if (params.verbose){
+    println ("[WORKFLOW] BOWTIE2 ARGS: "      + params.bowtie2_args)
+}
+
+include { INPUT_FILES }                  from './nf_modules/files.mod.nf'
+include { FASTQC_TRIM_MULTIQC }          from './workflows/wf_shortread_fastqc_trim.nf'
+include { BWA_ALIGN_SORT_INDEX }         from './workflows/wf_align_reads_sort_index.nf'
+include { BOWTIE2_ALIGN_SORT_INDEX }     from './workflows/wf_align_reads_sort_index.nf'
+
+
+if (params.list_genomes){
+    println ("[WORKLFOW] List genomes selected")
+}
+if (params.list_genomes){
+    listGenomes()  // this lists all available genomes, and exits
+}
+
+
+workflow {
+
+    main:
+        // prepare input files
+        file_ch = INPUT_FILES       ( params.input ).file_ch
+
+        // trim and QC the reads
+        ch_reads = FASTQC_TRIM_MULTIQC( file_ch, "$params.outdir", params.fastqc_args, params.trim_galore_args, params.multiqc_args, params.verbose )
+
+
+        // align the reads using BWA
+        // BWA_ALIGN_SORT_INDEX( ch_reads.trim_reads, params.fasta, "$params.outdir", params.bwa_args, params.verbose )
+
+        // align reads using BOWTIE2
+        BOWTIE2_ALIGN_SORT_INDEX( ch_reads.trim_reads, params.fasta, "$params.outdir", params.bowtie2_args, params.verbose )
+
+}
+
+// Since workflows with very long command lines tend to fail to get rendered at all, I was experimenting with a
+// minimal execution summary report so we at least know what the working directory was...
+workflow.onComplete {
+
+    def msg = """\
+        Pipeline execution summary
+        ---------------------------
+        Completed at: ${workflow.complete}
+        Duration    : ${workflow.duration}
+        Success     : ${workflow.success}
+        workDir     : ${workflow.workDir}
+        exit status : ${workflow.exitStatus}
+        """
+    .stripIndent()
+
+}
+
+
+

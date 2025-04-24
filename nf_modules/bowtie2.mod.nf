@@ -21,11 +21,15 @@ process BOWTIE2 {
 		val (verbose)
 
 	output:
-	    tuple val(name), path ("*bam"),        emit: bam
+	    tuple val(name), path ("*sam"),        emit: sam
 		path "*stats.txt", emit: stats 
 
 	publishDir "$outputdir",
-		mode: "copy", overwrite: true
+		mode: "copy", overwrite: true,
+		saveAs: {filename ->
+			if( params.save_intermediate ) filename
+			else null
+		}
 
 	script:
 		if (verbose){
@@ -37,7 +41,7 @@ process BOWTIE2 {
 
 		// Options we add are
 		bowtie_options = bowtie2_args
-		bowtie_options +=  " --no-unal " // We don't need unaligned reads in the BAM file
+		// bowtie_options +=  " --no-unal " // We don't need unaligned reads in the BAM file
 		
 		if (params.local == '--local'){
 			// println ("Adding option: " + params.local )
@@ -46,7 +50,7 @@ process BOWTIE2 {
 
 		if (reads instanceof List) {
 			readString = "-1 " + reads[0] + " -2 " + reads[1]
-			bowtie_options += " --no-discordant --no-mixed " // just output properly paired reads
+			// bowtie_options += " --no-discordant --no-mixed " // just output properly paired reads
 		}
 		else {
 			readString = "-U " + reads
@@ -56,7 +60,7 @@ process BOWTIE2 {
 		bowtie_name = name + "_" + genome_id
 
 		"""
-		bowtie2 -x ${index}/${index} -p ${cores} ${bowtie_options} ${readString}  2>${bowtie_name}_bowtie2_stats.txt | samtools view -bS -F 4 -F 8 -F 256 -> ${bowtie_name}_bowtie2.bam
+		bowtie2 -x ${index}/${index} -p ${cores} ${bowtie_options} ${readString} > ${bowtie_name}.sam  2>${bowtie_name}_bowtie2_stats.txt
 		"""
 
 }
