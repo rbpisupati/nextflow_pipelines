@@ -63,12 +63,13 @@ process SAMTOOLS_SORT {
 	tag "$name"
 	label 'bigMem'
 	
-	publishDir "$outputdir",
-		mode: "copy", overwrite: true,
-		saveAs: {filename ->
-			if( params.save_intermediate ) filename
-			else null
-		}
+	publishDir "$outputdir/$name", mode: "copy", overwrite: true
+	// publishDir "$outputdir",
+	// 	mode: "copy", overwrite: true,
+	// 	saveAs: {filename ->
+	// 		if( params.save_intermediate ) filename
+	// 		else null
+	// 	}
 
 	conda (params.enable_conda ? "bioconda::samtools=1.14" : null)
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
