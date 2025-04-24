@@ -4,11 +4,11 @@ process MULTIQC {
 	
 	label 'label_medium'
 
-	conda (params.enable_conda ? 'bioconda::multiqc=1.11' : null)
-	// container 'https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0'
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0' :
-        'quay.io/biocontainers/multiqc:1.11--pyhdfd78af_0' }"
+	conda (params.enable_conda ? 'bioconda::multiqc=1.28' : null)
+	container 'community.wave.seqera.io/library/multiqc:1.28--77be943f40819715'
+    // container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    //     'https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0' :
+    //     'quay.io/biocontainers/multiqc:1.11--pyhdfd78af_0' }"
 
 	// dynamic directive
 	memory { 20.GB * task.attempt }  
