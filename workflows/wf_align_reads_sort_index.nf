@@ -26,7 +26,7 @@ workflow BWA_ALIGN_SORT_INDEX {
     // .map{ row -> [file(row).baseName, file(row).baseName, file(row)] }
 
     // Align reads
-    BWA_MEM (ch_input_genome.bwa, ch_input_reads, "${val_outdir}/bam", val_bwa_args, val_verbose)
+    BWA_MEM                             ( ch_input_genome.bwa.collect(), ch_input_reads, "${val_outdir}/bam", val_bwa_args, val_verbose)
     SAMTOOLS_VIEW                       ( BWA_MEM.out.sam, "${val_outdir}/bam")
 
     // Add read group information and sorting bam file
@@ -35,7 +35,7 @@ workflow BWA_ALIGN_SORT_INDEX {
 
     // Stats
     SAMTOOLS_STATS                      ( SAMTOOLS_SORT.out.bam, "${val_outdir}/aligned_stats", val_verbose)
-    PICARD_COLLECTMULTIPLEMETRICS       ( SAMTOOLS_SORT.out.bam, ch_input_genome.fasta, "${val_outdir}/aligned_stats")
+    PICARD_COLLECTMULTIPLEMETRICS       ( SAMTOOLS_SORT.out.bam, ch_input_genome.fasta.collect(), "${val_outdir}/aligned_stats")
     
     // multiqc
     multiqc_ch = SAMTOOLS_STATS.out.stats.mix(
@@ -74,7 +74,7 @@ workflow BOWTIE2_ALIGN_SORT_INDEX {
 
     // Stats
     SAMTOOLS_STATS                      ( SAMTOOLS_SORT.out.bam, "${val_outdir}/aligned_stats", val_verbose)
-    PICARD_COLLECTMULTIPLEMETRICS       ( SAMTOOLS_SORT.out.bam, ch_input_genome.fasta, "${val_outdir}/aligned_stats")
+    PICARD_COLLECTMULTIPLEMETRICS       ( SAMTOOLS_SORT.out.bam, ch_input_genome.fasta.collect(), "${val_outdir}/aligned_stats")
     
     // multiqc
     multiqc_ch = SAMTOOLS_STATS.out.stats.mix(
@@ -106,7 +106,7 @@ workflow MINIMAP2_SORT_INDEX {
     ch_input_genome = PREPARE_GENOME    ( val_input_genome, "${val_outdir}/genome_index", false, false, false )
 
     // Align reads
-    MINIMAP2_ALIGN (ch_input_genome.fasta, ch_input_reads, "${val_outdir}/minimap2", val_minimap2_args)
+    MINIMAP2_ALIGN                      (ch_input_genome.fasta.collect(), ch_input_reads, "${val_outdir}/minimap2", val_minimap2_args)
     SAMTOOLS_VIEW                       ( MINIMAP2_ALIGN.out.sam, "${val_outdir}/minimap2")
 
     // Add read group information and sorting bam file
@@ -115,7 +115,7 @@ workflow MINIMAP2_SORT_INDEX {
 
     // Stats
     SAMTOOLS_STATS                      ( SAMTOOLS_SORT.out.bam, "${val_outdir}/aligned_stats", val_verbose)
-    PICARD_COLLECTMULTIPLEMETRICS       ( SAMTOOLS_SORT.out.bam, ch_input_genome.fasta, "${val_outdir}/aligned_stats")
+    PICARD_COLLECTMULTIPLEMETRICS       ( SAMTOOLS_SORT.out.bam, ch_input_genome.fasta.collect(), "${val_outdir}/aligned_stats")
     
     // multiqc
     multiqc_ch = SAMTOOLS_STATS.out.stats.mix(

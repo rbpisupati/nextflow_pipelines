@@ -1,0 +1,61 @@
+#!/usr/bin/env nextflow
+nextflow.enable.dsl=2
+
+// last modified 19 march 2025
+
+params.input = "data/*fastq.gz"
+params.outdir = "."
+params.file_ext = "fastq"
+
+params.save_intermediate = false
+
+// arguments for the tools
+params.minimap2_args = ' -ax map-ont '
+params.sniffles_args = ' '
+
+params.multiqc_args = ''
+
+params.verbose = false
+
+
+
+include { INPUT_FILES }         from './nf_modules/files.mod.nf'
+include { PREPARE_GENOME }      from './nf_modules/genomes.mod.nf'
+
+include { INPUT_SAMPLESHEET }   from './workflows/wf_input_samplesheet.nf'
+
+include {FASTQC_TRIM_MULTIQC}   from './workflows/wf_shortread_fastqc_trim.nf'
+include { BWA_ALIGN_SORT_INDEX} from './workflows/wf_align_reads_sort_index.nf'
+
+include { PORECHOP_QC }         from './workflows/wf_longread_qc_trim.nf'
+include { MINIMAP2_SORT_INDEX } from './workflows/wf_align_reads_sort_index.nf'
+include { SNIFFLES }            from './nf_modules/longread_var.nf'
+
+
+
+workflow {
+
+    main:
+
+        // genome
+        ch_input_genome = PREPARE_GENOME    ( params.fasta, "${params.outdir}/genome_index", false, false, false )
+
+        // pipeline for long read alignment
+        
+        // input reads
+        ch_raw_longreads = Channel.fromPath(params.input)
+                        .splitText(){ it.trim() }
+                        .map{ [file(it).baseName.replace(".fastq", "").replace(".rawdata", ""), file(it)] }
+        // INPUT_SAMPLESHEET( params.input )
+        // ch_raw_longreads = Channel.fromPath(params.input) 
+        
+        // ch_raw_longreads.view()
+
+        ch_longreads = PORECHOP_QC ( ch_raw_longreads, "${params.outdir}" )
+
+        MINIMAP2_SORT_INDEX ( ch_longreads.porechop_reads, params.fasta, "${params.outdir}", params.minimap2_args, params.verbose )
+        SNIFFLES(MINIMAP2_SORT_INDEX.out.sorted_bam, ch_input_genome.fasta.collect(), "${params.outdir}/sniffles", params.sniffles_args)
+
+
+}
+
